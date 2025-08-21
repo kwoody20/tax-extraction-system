@@ -104,4 +104,4 @@ geckodriver
 *.zip
 *.tar.gz
 *.rar
-*.7z
+*.7z.streamlit/secrets.toml

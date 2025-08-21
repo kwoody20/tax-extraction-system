@@ -18,12 +18,18 @@ from supabase_auth import SupabaseAuthManager
 
 # ========================= Configuration =========================
 
-# Supabase Configuration
-SUPABASE_URL = "https://klscgjbachumeojhxyno.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3OTU1OTksImV4cCI6MjA3MTM3MTU5OX0.nJF44C6SPe-dNfPit7zTsij2foo67WNY3PFl7lfxquY"
+# Configuration - Use Streamlit secrets in production, environment variables locally
+import os
 
-# API Configuration
-API_URL = "http://localhost:8000"
+# Try to get from Streamlit secrets first (production), then environment, then defaults
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+    API_URL = st.secrets["API_URL"]
+except:
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3OTU1OTksImV4cCI6MjA3MTM3MTU5OX0.nJF44C6SPe-dNfPit7zTsij2foo67WNY3PFl7lfxquY")
+    API_URL = os.getenv("API_URL", "https://web-production-45338.up.railway.app")
 
 # Page Configuration
 st.set_page_config(
