@@ -344,11 +344,15 @@ async def health_check():
         db_client = db_manager.get_client()
         stats = db_client.calculate_tax_statistics()
         
+        # Get actual entity count directly
+        entities = db_client.get_entities(limit=100)
+        actual_entity_count = len(entities)
+        
         return {
             "status": "healthy",
             "database": "connected",
             "properties_count": stats.get("total_properties", 0),
-            "entities_count": stats.get("total_entities", 0),
+            "entities_count": actual_entity_count,  # Use actual count
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
