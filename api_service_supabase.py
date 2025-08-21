@@ -30,7 +30,8 @@ from supabase.client import AsyncClient, create_async_client
 from dotenv import load_dotenv
 
 # Import extraction modules
-from robust_tax_extractor import RobustTaxExtractor
+# from robust_tax_extractor import RobustTaxExtractor
+# TODO: Switch to MASTER_TAX_EXTRACTOR when integrating extraction
 from supabase_client import SupabasePropertyTaxClient, AsyncSupabasePropertyTaxClient
 
 load_dotenv()
@@ -229,8 +230,9 @@ async def extract_property_tax(property_data: Dict) -> ExtractionResult:
     property_name = property_data.get("property_name", "Unknown")
     
     try:
-        # Use the robust tax extractor
-        extractor = RobustTaxExtractor(None)  # We'll pass data directly
+        # TODO: Integrate MASTER_TAX_EXTRACTOR here
+        # For now, use mock extraction for deployment
+        # extractor = RobustTaxExtractor(None)  # We'll pass data directly
         
         # Extract based on the tax bill URL
         tax_url = property_data.get("tax_bill_link")
