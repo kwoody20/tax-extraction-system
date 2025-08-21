@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["python311"]
-
-[phases.install]
-cmds = ["pip install -r requirements_minimal.txt"]
-
-[start]
-cmd = "uvicorn api_service_supabase:app --host 0.0.0.0 --port ${PORT:-8000}"
