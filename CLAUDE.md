@@ -60,7 +60,13 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ## 🚀 Quick Start
 
-### Start All Services
+### Production Deployment
+- **🌐 Live API**: https://web-production-45338.up.railway.app/
+- **📚 API Docs**: https://web-production-45338.up.railway.app/docs
+- **🏗️ Platform**: Railway (auto-deploys from GitHub)
+- **📦 Repository**: https://github.com/kwoody20/tax-extraction-system
+
+### Local Development
 ```bash
 # 1. Start API Service
 python api_service_supabase.py
@@ -238,17 +244,25 @@ brew install chromedriver
 - **Auth Settings**: Email confirmation can be disabled for development
 - **Service URLs**: 
   - Database: https://klscgjbachumeojhxyno.supabase.co
-  - API: http://localhost:8000
-  - Dashboard: http://localhost:8502
+  - Production API: https://web-production-45338.up.railway.app
+  - Local API: http://localhost:8000
+  - Local Dashboard: http://localhost:8502
 
 ### Current System Status
 - ✅ 102 properties loaded in database
 - ✅ 43 entities configured
-- ✅ API service with authentication
-- ✅ Dashboard with real-time data
-- ✅ Extraction engine integrated
+- ✅ API service LIVE at https://web-production-45338.up.railway.app
+- ✅ Dashboard with real-time data (local only, needs deployment)
+- ✅ Extraction engine integrated (local only, needs separate deployment)
 - ✅ $50,058.52 in outstanding taxes tracked
 - ✅ $434,291.55 in previous year taxes
+
+### Production API Endpoints
+- **Health**: https://web-production-45338.up.railway.app/health
+- **API Docs**: https://web-production-45338.up.railway.app/docs
+- **Properties**: https://web-production-45338.up.railway.app/api/v1/properties
+- **Entities**: https://web-production-45338.up.railway.app/api/v1/entities
+- **Statistics**: https://web-production-45338.up.railway.app/api/v1/statistics
 
 ### Key Files for Reference
 - **SUPABASE_AUTH_GUIDE.md**: Complete authentication setup
