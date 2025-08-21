@@ -1,0 +1,68 @@
+# Multi-stage Dockerfile for Tax Extractor API
+FROM python:3.11-slim as builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    build-essential \
+    libxml2-dev \
+    libxslt-dev \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements_api.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements_api.txt
+
+# Production stage
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libxml2 \
+    libxslt1.1 \
+    chromium-driver \
+    chromium \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 apiuser && \
+    mkdir -p /app/output /app/logs /tmp/tax_extractor && \
+    chown -R apiuser:apiuser /app /tmp/tax_extractor
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --chown=apiuser:apiuser . /app/
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app:${PATH}" \
+    TAX_EXTRACTOR_HEADLESS=true
+
+# Switch to non-root user
+USER apiuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+
+# Run the application
+CMD ["uvicorn", "api_service_enhanced:app", "--host", "0.0.0.0", "--port", "8000"]

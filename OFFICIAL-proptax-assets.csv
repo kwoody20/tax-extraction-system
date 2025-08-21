@@ -1,0 +1,212 @@
+Property ID,Property Name,Sub-Entity,Parent Entity,Jurisdiction,State,Property Type,Close Date,Amount Due,Previous Year Taxes,Extraction Steps,Acct Number,Property Address,Tax Bill Link
+0647afda-e37a-4044-83df-89b1a44a6f35,"17017 N CAVE CREEK ROAD PHOENIX, AZ 85032 (Jack In The Box Inc.)",,BCS Phoenix Bell LLC,Maricopa,AZ,property,7/22/21,$0.00 ,"	$7,078.40",1. Enter 214-05-025A in Parcel Number Form,214-05-025A,"17017 N CAVE CREEK RD
+PHOENIX, AZ 85032",https://treasurer.maricopa.gov/
+227cece5-26e4-4f96-a81c-4b2eec6d7ce5,"2404 E BELL ROAD PHOENIX, AZ 85032 (BATTERIES)",,BCS Phoenix Bell LLC,Maricopa,AZ,property,7/22/21,$0.00 ,"$5,084.00 ",1. Enter 214-05-025B in Parcel Number Form,214-05-025B,"2404 E BELL RD
+PHOENIX, AZ 85032",https://treasurer.maricopa.gov/
+b5592949-d5ed-4f0d-bc2d-0a23dba9f558,3202 Riley Fuzzell Rd - (8.875 acres),3202 Riley Fuzzell Rd - (18.1 acres):,BCS Birnham Woods LLC (TX),Montgomery,TX,property,,$0.00 ,"$6,530.32 ","1. Direct Link
+2. ""Current Amount Due""",0003510100300',"3202 RILEY FUZZELL RD
+77386",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0003510100300&ownerno=0
+77ede50c-3a06-444f-834e-989d3f300fba,3202 Riley Fuzzell Rd - (8.875 acres) - Improvements Only (Tract 3-A),3203 Riley Fuzzell Rd - (18.1 acres):,BCS Birnham Woods LLC (TX),Montgomery,TX,property,,$0.00 ,"$1,664.27 ","1. Direct Link
+2. ""Current Amount Due""",0003510100306',"3150 RILEY FUZZELL RD
+77386",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0003510100306&ownerno=0
+11adeda0-72fa-44b6-a0f6-20eb4a83c62e,3202 Riley Fuzzell Rd - Mobile Home - (0.0 acres),3204 Riley Fuzzell Rd - (18.1 acres):,BCS Birnham Woods LLC (TX),Montgomery,TX,property,,$0.00 ,$369.54 ,"1. Direct Link
+2. ""Current Amount Due""",3510100305,"3202 RILEY FUZZELL RD
+77386",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0003510100305&ownerno=0
+6861b24b-230f-4d1d-bd9a-3fe8a567bd1d,3203 Riley Fuzzell Rd - (9.244 acres),3205 Riley Fuzzell Rd - (18.1 acres):,BCS Birnham Woods LLC (TX),Montgomery,TX,property,,$0.00 ,"$5,110.32 ","1. Direct Link
+2. ""Current Amount Due""",3510100310,"3203 RILEY FUZZELL RD
+77386",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0003510100310&ownerno=0
+7b76e43f-6128-46af-90ad-13c4a0f63746,BCS Aldine LLC - Aldine ISD,,BCS Aldine LLC (TX),Aldine ISD,TX,property,12/14/20,$0.00 ,"$19,818.47 ","1. Direct Link
+2. ""Due Amount""",1.29E+12,3035 FM 1960 RD,https://tax.aldine.k12.tx.us/Accounts/AccountDetails?taxAccountNumber=1289610010003
+338e8462-ab0a-4026-9608-abd19a46b576,BCS Aldine LLC - Memorial Hills UD,,BCS Aldine LLC (TX),Memorial Hills UD,TX,property,12/14/20,$0.00 ,"$12,345.34 ","1. Links to search page
+2. Enter BCS in ""search criteria"" form
+3. Click BCS Aldine",R000061072,3035 FM 1960 RD,https://equitax.azurewebsites.net/search/list
+5b934179-a5c0-48f3-84a8-7ef846c6fb6f,"BCS Auto Properties LLC - 1204 Federal Rd, Houston",,BCS Auto Properties LLC (TX),Harris,TX,property,7/30/25,$0.00 ,"$19,475.89 ","1. Direct Link
+2. ""Final Total Amount Due""",069-039-000-0111,1204 FEDERAL RD 77015,https://www.hctax.net/property/TaxStatement?account=H121C5X068PKoeFCzGBdue+rsqT9Ldjc83+oKTkml9U=
+f81ec7fe-6f67-49c9-9ba3-8e9daf06780d,"BCS Auto Properties LLC - 302 W Calton Rd, Laredo",,BCS Auto Properties LLC (TX),Webb,TX,property,7/30/25,$0.00 ,"$7,265.50 ","1. Enter account number in form field 90500079011
+2. Click the account number as link",90500079011,"302 W. Calton Rd., Laredo",https://webb.go2gov.net/webb/cart/search/display.do?criteria.searchStatus=1
+4a6c578d-73ba-46ba-ab97-b38f09dffdba,BCS Baytown Grove LLC - 0 INTERSTATE 10 HWY (11.49 Acres),,BCS Baytown Grove LLC,Harris,TX,property,4/10/24,$0.00 ,"$7,048.08 ","1. Direct Link
+2. ""Final Total Amount Due""",046-054-000-0110,0 INTERSTATE 10 HWY 77521,https://www.hctax.net/property/TaxStatement?account=QSwzVbdqmlLu7JpRwBhtTHJe2U8ZwsULJKmM+zQxijg=
+f7ae1b0f-3253-4a4d-9294-ecefa1556a02,BCS Baytown Grove LLC - 7122 INTERSTATE 10 HWY (1 Acre),,BCS Baytown Grove LLC,Harris,TX,property,4/10/24,$0.00 ,"$1,590.86 ","1. Direct Link
+2. ""Final Total Amount Due""",046-054-000-0001,7122 INTERSTATE 10 HWY 77521,https://www.hctax.net/Property/TaxStatement?account=QSwzVbdqmlLu7JpRwBhtTLkPWVvMHLTj2ipqUuj7pD0=
+96277965-e609-450a-a0ee-31e55b2cac8b,BCS Baytown Grove LLC - 7126 INTERSTATE 10 HWY (33.3790 Acres),,BCS Baytown Grove LLC,Harris,TX,property,4/10/24,$0.00 ,"$12,132.49 ","1. Direct Link
+2. ""Final Total Amount Due""",046-054-000-0004,7126 INTERSTATE 10 HWY 77521,https://www.hctax.net/Property/TaxStatement?account=QSwzVbdqmlLu7JpRwBhtTOseTO/L05AYNdW1lRVorwI=
+6125d409-7cd9-43df-a634-685014b8156a,BCS Baytown Grove LLC - 7130 INTERSTATE 10 HWY (1.0514 Acres),,BCS Baytown Grove LLC,Harris,TX,property,4/10/24,$0.00 ,"$1,732.33 ","1. Direct Link
+2. ""Final Total Amount Due""",046-054-000-0003,7130INTERSTATE 10 HWY 77521,https://www.hctax.net/Property/TaxStatement?account=QSwzVbdqmlLu7JpRwBhtTIHqdD0idrahbB5hiq0KUFM=
+cf8a5840-3f2d-4d1f-870d-e4420ca29f34,BCS Baytown Grove LLC - Goose Creek ISD (1 Acre),BCS Baytown Grove LLC - Goose Creek ISD: (Total 35.430 Acres) - Pending 11 Acre Bill?,BCS Baytown Grove LLC,Goose Creek ISD,TX,property,4/10/24,$0.00 ,"$5,143.62 ","1. Direct Link
+2. ""Due Amount""",4.61E+11,0007122 INTERSTATE 10 HWY,https://tax.gccisd.net/Accounts/AccountDetails?taxAccountNumber=0460540000001
+a1a634cc-7327-4d66-a54f-f45c145fabb8,BCS Baytown Grove LLC - Goose Creek ISD (1.0514 Acres),BCS Baytown Grove LLC - Goose Creek ISD: (Total 35.430 Acres) - Pending 11 Acre Bill?,BCS Baytown Grove LLC,Goose Creek ISD,TX,property,4/10/24,$0.00 ,"$5,600.99 ","1. Direct Link
+2. ""Due Amount""",4.61E+11,0007130 INTERSTATE 10 HWY,https://tax.gccisd.net/Accounts/AccountDetails?taxAccountNumber=0460540000003
+6f6591a5-cbfd-4e19-a6af-69247124e789,BCS Baytown Grove LLC - Goose Creek ISD (11.49 Acres),BCS Baytown Grove LLC - Goose Creek ISD: (Total 35.430 Acres) - Pending 11 Acre Bill?,BCS Baytown Grove LLC,Goose Creek ISD,TX,property,4/10/24,$0.00 ,"$22,787.92 ","1. Direct Link
+2. ""Due Amount""",4.61E+11,0000000 INTERSTATE 10 HWY,https://tax.gccisd.net/Accounts/AccountDetails?TaxAccountNumber=0460540000110&SortOrder=1&DisplayYear=2
+015a2e65-b4a8-4f0d-ae87-ca26c9107024,BCS Baytown Grove LLC - Goose Creek ISD (33.379 Acres),BCS Baytown Grove LLC - Goose Creek ISD: (Total 35.430 Acres) - Pending 11 Acre Bill?,BCS Baytown Grove LLC,Goose Creek ISD,TX,property,4/10/24,$0.00 ,"$39,226.93 ","1. Direct Link
+2. ""Due Amount""",4.61E+11,0007126 INTERSTATE 10 HWY,https://tax.gccisd.net/Accounts/AccountDetails?taxAccountNumber=0460540000004
+e32f3d40-f1ee-449a-ae52-051671af33db,BCS Bethlehem LLC (TX) - Bethlehem Area School District,,BCS Bethlehem LLC (TX),Bethlehem SD,PA,property,12/22/21,"$8,567.88 ",none,"1. Direct Link
+2. Under ""Payment Amount""",000840-009791,4440 EASTON AVE,https://pay.eb2gov.com/Service/EPayGetBills?ID=566&TownCode=9220&TownCodeMasterID=189&Source=PT&SourceID=566&propid=023024
+a87e5a25-7430-47f6-9890-ec4fba7c8442,BCS Bethlehem LLC (TX) - Bethlehem Township,,BCS Bethlehem LLC (TX),Bethlehem Township,PA,property,12/22/21,$639.86 ,none,used google drive pdfs,000840-009791,4440 EASTON AVE,https://customer.hab-inc.com/pub/MiscTax/GetBalance
+b06947a6-efdc-4f4b-b854-d89d6c307669,BCS Bethlehem LLC (TX) - Bethlehem Township (Annual Stormwater Fee),,BCS Bethlehem LLC (TX),Bethlehem Township,PA,property,12/22/21,"$1,049.84 ",none,used google drive pdfs,000840-009791,4440 EASTON AVE,https://customer.hab-inc.com/pub/MiscTax/GetBalance
+3ea046f5-784c-44de-ae34-52baabc5fcfb,BCS Birnham Woods LLC (TX) - ParkwayRayford 42 - Spring Creek U.D. - (1.59 acres),,BCS Birnham Woods LLC (TX),Spring Creek U.D.,TX,property,,$0.00 ,"$1,295.29 ","1. Direct Link
+2. ""Due for…"" text line",45937300,RAYFORD ROAD CROSSING,https://www.utilitytaxservice.com/AcctDetail/MSC/45937300
+ec3012cc-fea8-4a9b-a259-5bf937c7ee47,BCS Birnham Woods LLC (TX) - Spring Creek U.D. - (8.875 acres),,BCS Birnham Woods LLC (TX),Spring Creek U.D.,TX,property,,$0.00 ,"$3,658.96 ","1. Direct Link
+2. ""Due for…"" text line",4816800,"3202 RILEY FUZZELL RD
+SPRING 77386",https://www.utilitytaxservice.com/AcctDetail/MSC/04816800
+2f179758-db94-4d7a-8424-0d847a340d4c,BCS Birnham Woods LLC (TX) - Spring Creek U.D. - (9.244 acres),,BCS Birnham Woods LLC (TX),Spring Creek U.D.,TX,property,,$0.00 ,"$2,863.33 ","1. Direct Link
+2. ""Due for…"" text line",4817000,"3203 RILEY FUZZELL RD
+SPRING 77386",https://www.utilitytaxservice.com/AcctDetail/MSC/04817000
+310dc0da-b2dd-4f69-a474-fe8be3150769,"BCS Clutch Shepherd LLC - 0 THORNTON RD HOUSTON, TX 77018 (0.342 Acre)",,BCS Clutch Shepherd LLC (TX),Harris,TX,property,3/11/22,$0.00 ,"$6,852.31 ","1. Direct Link
+2. ""Final Total Amount Due""",138-515-001-0001,"0 THORNTON RD HOUSTON, TX 77018",https://www.hctax.net/Property/TaxStatement?account=JAXBZDqeP+CKCK2S21TI3Y6QtCiR2kFDFSYLF66T+cc=
+f64e4809-e0d0-48ea-a587-3ed2b3834740,"BCS Clutch Shepherd LLC - 4610 N SHEPHERD DR HOUSTON, TX 77018 (0.8412 Acres) - Clutch",,BCS Clutch Shepherd LLC (TX),Harris,TX,property,3/11/22,$0.00 ,"$36,835.21 ","1. Direct Link
+2. ""Total Current Taxes Due""",138-515-001-0004,"4610 N SHEPHERD DR HOUSTON, TX 77018",https://www.hctax.net/Property/TaxStatement?account=JAXBZDqeP+CKCK2S21TI3eLWfmrhuAWX9B7SeXmvxN4=
+de37b669-f37a-4e41-a119-c22148c7e13d,"BCS Clutch Shepherd LLC - 4610 N SHEPHERD DR HOUSTON, TX 77018 Now (0.963 Acres) -  (PY 1.8042 Acres)",,BCS Clutch Shepherd LLC (TX),Harris,TX,property,3/11/22,$0.00 ,"$26,331.75 ","1. Direct Link
+2. ""Final Total Amount Due""",138-515-001-0002,"4610 N SHEPHERD DR HOUSTON, TX 77018",https://www.hctax.net/Property/TaxStatement?account=JAXBZDqeP+CKCK2S21TI3U0wxL9usUCMOPx6orETmAY=
+f788e426-ea34-49ca-a20e-996388acdfef,BCS Conroe Davis LLC - Improvements,,BCS Conroe Davis LLC,Montgomery,TX,property,12/20/24,$0.00 ,$0.00 ,"1. Direct Link
+2. Total Amount Due",1.91E+12,"2116 W DAVIS ST
+77304",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=1910018224412&ownerno=0
+769e1476-1fd4-4b7d-a065-51d4993955bf,BCS Humble LLC - 4.8651 Acres,,BCS Humble LLC,Harris,TX,property,5/18/23,$0.00 ,"$31,418.58 ","1. Direct Link
+2. ""Final Total Amount Due""",42-796-001-0001,9435 FM 1960 BYPASS RD W 77338,https://www.hctax.net/Property/TaxStatement?account=8qkZXsVNHomOFw9TVPqs+xmvCp2keJ24TOejPl2lx9Y=
+e1f58e2e-022e-4aaa-bcbc-0edc8d5aa2cb,"BCS Hunt Road LLC - 32323 Hunt Rd - Tract 14 (Pt),  1 Acre, (Pt of a 8.7778 acre tract)",,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.70E+13,"32323 HUNT RD
+77423",https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0017000000140901
+d5947be7-b317-4584-811b-fc556a86fc87,"BCS Hunt Road LLC - 32323 Hunt Rd - Tract 14 (Pt),  7.7778 Acres, (Pt of a 8.7778 acre tract)",,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.70E+13,32323 HUNT RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0017000000142901
+9aaf84f4-29f3-4437-892d-4f427b9fa8cf,BCS Hunt Road LLC - FM 359 Rd - 1 Acre,,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.40E+13,FM 359 RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0014000000114901
+41b61b23-2c27-4f23-8b9a-dedb3327030a,BCS Hunt Road LLC - FM 359 Rd - 7.77 Acres,,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.40E+13,FM 359 RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0014000000110901
+152de887-72c7-421f-8d51-8556e651c61b,BCS Hunt Road LLC - FM 359 Rd - Tract 1 - 2.185 Acres,,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.40E+13,FM 359 RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0014000000056901
+88b7a6f2-1784-48fd-aeaf-0316a8706834,BCS Hunt Road LLC - FM 359 Rd - Tract 2 -  3.5 Acres,,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,,"1. Direct Link
+2. Taxes Due for 2024",1.40E+13,FM 359 RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0014000000050901
+f1b5e8a0-cdf7-46da-8bff-647532445b98,BCS Hunt Road LLC - FM 359 Rd - Tract 6 - 1.1044 Acres,,BCS Hunt Road LLC (TX) - 23.23 acres,Fort Bend,TX,property,11/17/22,$0.00 ,"$5,138.00 ","1. Direct Link
+2. Taxes Due for 2024",1.40E+13,FM 359 RD,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=0014000000060901
+736d8a9b-0183-4fca-8b9c-90b4dabcbc61,BCS Katy LLC - CIMARRON M.U.D.,,BCS Katy LLC,Cimarron M.U.D.,TX,property,1/19/21,$0.00 ,"$4,547.09 ","1. Direct Link
+2. Scroll to ""Total Due"" in table on right side of page.",142-3219-001-0010,,https://bli-tax.com/tax-form/?r=14232190010010
+c39c0b90-d0b9-4fd8-b7ee-cd17a55b5acc,BCS Luling LLC - KING DAVID LLC (5855 Chef Menteur HW),,BCS Luling LLC (TX),City of New Orleans,LA,property,12/29/20,$0.00 ,"$34,502.81 ","1. Direct Link
+2. Scroll to ""Total Taxes Due as of…""",39P016221,5855 CHEF MENTEUR HW,https://services.nola.gov/service.aspx?load=treasury&Type=2&TaxBill=39P016221
+370e87ca-60f5-4a76-b11d-3370e181c3cd,"BCS Luling LLC - MKA CAPITAL, LLC (5855 Chef Menteur Hw 1) - Now: Fast Stop of Chef LC DBA F",,BCS Luling LLC (TX),City of New Orleans,LA,property,12/29/20,overdue,"$24,985.50 ","1. Direct Link
+2. Scroll to ""Total Taxes Due as of…""",39P134507 (tax bill no),"5855 CHEF MENTEUR HIGHWAY
+NEW ORLEANS LA",https://services.nola.gov/service.aspx?load=treasury&Type=2&TaxBill=39P134507
+e6d778af-8948-4a1b-a014-bc9e8b5593ab,BCS Lumberton LLC - MST 0.42 Acres,,BCS Lumberton LLC (TX) - 1.786 Acres (Remaining) - 0.786 Acres,Hardin,TX,property,3/23/23,skip,skip,"1. Direct Link
+2. Scroll to ""Total Due"" in table on right side of page.",94631,"309 N LHS DR LUMBERTON, TX 77657",https://govpay.net/hardin-co-tx-property
+d6ae4fb1-09d4-4d12-b317-71e037afa45c,BCS Lumberton LLC - Pad 0.999 Acres,,BCS Lumberton LLC (TX) - 1.786 Acres (Remaining) - 0.786 Acres,Hardin,TX,property,3/23/23,skip,skip,skip,skip,skip,https://govpay.net/hardin-co-tx-property
+bcfa2441-3156-4e11-a09d-4e925996a92f,BCS Magnolia Place LLC - (13.884 Acres),,BCS Magnolia Place LLC (TX) - Total 51.13 Acres,Montgomery,TX,property,2/23/24,,,"1. Direct Link
+2. Taxes Due for 2024",71020000300,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0071020000300&ownerno=0
+4c0f48a6-4e54-4fa9-a3c6-b22195672c46,BCS Magnolia Place LLC - (14.58 Acres),,BCS Magnolia Place LLC (TX) - Total 51.13 Acres,Montgomery,TX,property,2/23/24,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0071020000400&ownerno=0
+8da9ee56-aba0-4323-b7aa-0f1065a017c6,BCS Magnolia Place LLC - (26.28 Acres) - Partial (17.570 Acres),,BCS Magnolia Place LLC (TX) - Total 51.13 Acres,Montgomery,TX,property,2/23/24,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=803300&ownerno=0
+a1b864a4-3328-4611-9823-8eb30f60e07f,BCS Magnolia Place LLC - (5.099 Acres),,BCS Magnolia Place LLC (TX) - Total 51.13 Acres,Montgomery,TX,property,2/23/24,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0071020000100&ownerno=0
+e617ae21-e16c-4ec9-85ca-3222ad069194,BCS Missouri City LLC - Fort Bend County,,BCS Missouri City LLC,Fort Bend,TX,property,12/30/21,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/fbc/showdetail2.jsp?can=2150040000120907
+57684f52-1d4b-417b-ac6f-26ef947fc3ee,BCS Mont Belvieu LLC - 1.004 Acres (Haza Sale),,BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Chambers,TX,property,6/9/23,,"$4,283.00 ","1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.hctax.net/Property/TaxStatement?account=EYyr+UUfFo6x92nlY6qDLrdhLhEQTgNhnXKEblDuM8g=
+e9fed829-064f-43be-bc3d-2629cb3b0bb9,BCS Mont Belvieu LLC - 1.083 Acres,,BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Chambers,TX,property,6/9/23,,,skip,,,https://actweb.acttax.com/chambers/chambers/index.jsp
+59290887-1181-48ff-9466-ffbacca6a4f6,BCS Mont Belvieu LLC - 3.243 Acres,,BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Chambers,TX,property,6/9/23,,,skip,,,https://actweb.acttax.com/chambers/chambers/account-details.jsp?can=6029
+1a41335c-d8b7-4756-bb3b-1890adcd0df7,BCS Mont Belvieu LLC - Barbers Hill ISD (1.004 Acres) (Sold),BCS Mont Belvieu LLC - Barbers Hill ISD: (Total 5.33 Acres),BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Barbers Hill ISD,TX,property,6/9/23,,,1. Direct Link,,,https://bhisd.propertytaxpayments.net/Accounts/AccountDetails?taxAccountNumber=6029
+bbe7ba61-8f4d-4765-87c1-0edbe2f92e94,BCS Mont Belvieu LLC - Barbers Hill ISD (1.083 Acres),BCS Mont Belvieu LLC - Barbers Hill ISD: (Total 5.33 Acres),BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Barbers Hill ISD,TX,property,6/9/23,,,1. Direct Link,,,https://bhisd.propertytaxpayments.net/Accounts/AccountDetails?taxAccountNumber=6029
+a795dd34-166b-4c86-93a1-17f0d606db5d,BCS Mont Belvieu LLC - Barbers Hill ISD (3.243 Acres),BCS Mont Belvieu LLC - Barbers Hill ISD: (Total 5.33 Acres),BCS Mont Belvieu LLC (TX) - Total 5.33 Acres (Remaining  4.3260 Acres),Barbers Hill ISD,TX,property,6/9/23,,,1. Direct Link,,,https://bhisd.propertytaxpayments.net/Accounts/AccountDetails?taxAccountNumber=6029
+c4d6cebf-8fec-4fed-bf00-e15e3d5dc851,BCS Montgomery LLC - 1.238 Acres,BCS Montgomery LLC - 6.59 Acres:,BCS Montgomery LLC - 39 Acres:,Montgomery,TX,property,7/29/25,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000080000229&ownerno=0
+1eee4175-dcbf-4ee2-88ba-128d1133dea9,BCS Montgomery LLC - 5.352 Acres,BCS Montgomery LLC - 6.59 Acres:,BCS Montgomery LLC - 39 Acres:,Montgomery,TX,property,7/29/25,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000080000232&ownerno=0
+1cca051b-9ba7-4bbc-a170-1bbfd1d668f2,BCS Montgomery LLC - Tract 2-G (24.5 Acres),BCS Montgomery LLC - 32 Acres:,BCS Montgomery LLC - 39 Acres:,Montgomery,TX,property,4/15/25,,,"1. Direct Link
+2. HTTP request",80000248,"19971 FM 2854 RD
+MONTGOMERY, TX 77316-3151",https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000080000248&ownerno=0
+36b0adee-8561-473f-809f-dae68cc83f7d,BCS Montgomery LLC - Tract 2-G (6.019 acres),BCS Montgomery LLC - 32 Acres:,BCS Montgomery LLC - 39 Acres:,Montgomery,TX,property,4/15/25,,,"1. Direct Link
+2. HTTP request",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000080000206&ownerno=0
+b9e47a8a-bc8e-4706-97d0-39329d60e698,BCS Montgomery LLC - Tract 2G1-A (2.592 acres),BCS Montgomery LLC - 32 Acres:,BCS Montgomery LLC - 39 Acres:,Montgomery,TX,property,4/15/25,,,"1. Direct Link
+2. HTTP request",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000080000222&ownerno=0
+4c5df72a-61c5-46e8-aaef-572c0fcd50f8,"BCS NC Fund Propco 01 LLC - 124 NC Highway 55 West, Mount Olive, NC",,BCS NC Fund Holdco LLC (TX),Wayne,NC,property,12/22/22,$0.00 ,"$8,314.99 ",1. Direct Link,6096,W NC 55 HWY UNINCORPORATED,https://pwa.waynegov.com/PublicWebAccess/BillDetails.aspx?BillPk=2454000
+cc27a22b-a591-4e86-9879-e9b7160f2d58,"BCS NC Fund Propco 02 LLC - 420 E. New Hope Road, Goldsboro, NC",,BCS NC Fund Holdco LLC (TX),Wayne,NC,property,12/22/22,$0.00 ,"$9,804.70 ",1. Direct Link,29924,420 E NEW HOPE RD UNINCORPORATED,https://pwa.waynegov.com/PublicWebAccess/BillDetails.aspx?BillPk=2454038
+90da0b23-fdb3-4989-90d8-318099dd6d11,"BCS NC Fund Propco 04 LLC - 2103 S Brightleaf Blvd, Smithfield, NC - Parcel 1 (0.72 Acre)",,BCS NC Fund Holdco LLC (TX),Johnston,NC,property,12/22/22,$405.65 ,,"1. Drop down select ""Search by Business Name""
+2. Form fill ""BCS""
+3. Tax for this property is the first record in table.",,,https://taxpay.johnstonnc.com/TaxPayOnline/prod/
+2367bda1-0fec-4786-a845-fc678c37f31c,"BCS NC Fund Propco 04 LLC - 2103 S Brightleaf Blvd, Smithfield, NC - Parcel 2 (0.3 Acre)",,BCS NC Fund Holdco LLC (TX),Johnston,NC,property,12/22/22,"$8,416.30 ",,"1. Drop down select ""Search by Business Name""
+2. Form fill ""BCS""
+3. Tax for this property is the second record in table.",,,https://taxpay.johnstonnc.com/TaxPayOnline/prod/
+a4add047-095d-4c1f-9312-02451b7ba600,"BCS NC Fund Propco 05 LLC - 334 E Main Street, Havelock, NC (Craven County)",,BCS NC Fund Holdco LLC (TX),Craven,NC,property,12/22/22,"$4,655.01 ",,"1. Form fill for ""account number"" field.
+2. acct number 114834
+3. page will scroll automatically
+4. record for this property is the last row (year 2025) ",,,https://www.bttaxpayerportal.com/ITSPublicCR/TaxBillSearch
+ebf3111e-e9b6-49a2-a14b-32ca0ba57169,"BCS NC Fund Propco 06 LLC - (Horry County) 3288 Holmestown Road, Myrtle Beach, SC",,BCS NC Fund Holdco LLC (TX),Horry,NC,property,12/22/22,$0.00 ,"$17,337.34		",1. Use 'Notice Number' in search dropdown,107516243,,https://horrycountytreasurer.qpaybill.com/Taxes/TaxesDefaultType4.aspx
+1c4b3c69-efdb-46cc-a526-942e25b9fe09,"BCS NC Fund Propco 07 LLC - (Moore County) 3778 Highway 15-501, Carthage, NC",,BCS NC Fund Holdco LLC (TX),Moore,NC,property,12/22/22,,,"1. Form fill '2024' in bill year. (2025 will be input as default)
+2. Form fill 'BCS' for 'Owner Name' field",,,https://selfservice.moorecountync.gov/css/citizens/RealEstate/Default.aspx?mode=new
+f17d2d72-072f-4290-aa3f-020a53a24515,"BCS NC Fund Propco 08 LLC - 6127 US 301 South, Four Oaks, NC",,BCS NC Fund Holdco LLC (TX),Johnston,NC,property,12/22/22,"$8,147.13 ",,"1. Drop down select ""Search by Business Name""
+2. Form fill ""BCS""
+3. Tax for this property is the third record in table.",,,https://taxpay.johnstonnc.com/TaxPayOnline/prod/
+b0da671b-d487-40a9-b652-bf5145d86efc,"BCS NC Fund Propco 09 LLC - 370 NC Highway 43, Vanceboro, NC (Craven County)",,BCS NC Fund Holdco LLC (TX),Craven,NC,property,12/22/22,,,"""1. Form fill for """"account number"""" field.
+2. acct number 114839
+3. page will scroll automatically
+4. record for this property is the last row (year 2025) """,,,https://www.bttaxpayerportal.com/ITSPublicCR/TaxBillSearch
+b0274e81-e88d-4d0a-b7b5-4092e20ef887,"BCS NC Fund Propco 10 LLC - 2532 W. 5th Street, Washington, NC (Beaufort County)",,BCS NC Fund Holdco LLC (TX),Beaufort,NC,property,12/22/22,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://bcpwa.ncptscloud.com/beauforttax/BillDetails.aspx?BillPk=1125818
+33ef7804-5223-4b84-b5e7-c7477fbb0765,"BCS NC Fund Propco 11 LLC - 4100 Dr. Martin Luther King Jr. Blvd, New Bern, NC (Craven County)",,BCS NC Fund Holdco LLC (TX),Craven,NC,property,12/22/22,,,"""1. Form fill for """"account number"""" field.
+2. acct number 116885
+3. page will scroll automatically
+4. record for this property is the last row (year 2025) """,,,https://www.bttaxpayerportal.com/ITSPublicCR/TaxBillSearch
+ff5d1f45-41e9-4c76-8704-6f45d0e22df0,"BCS NC Fund Propco 12 LLC - 1602 Martin Luther King Jr. Pkwy, Wilson, NC - Parcel 1",,BCS NC Fund Holdco LLC (TX),Wilson,NC,property,12/22/22,$0.00 ,,"1. Form fill 'BCS'
+2. Click the account number in table (first row)",,,https://wilsonnc.devnetwedge.com/
+d07deae5-1689-48b7-b289-04d657675879,"BCS NC Fund Propco 12 LLC - 1602 Martin Luther King Jr. Pkwy, Wilson, NC - Parcel 2",,BCS NC Fund Holdco LLC (TX),Wilson,NC,property,12/22/22,$0.00 ,,"1. Form fill 'BCS'
+2. Click the account number in table (second row)",,,https://wilsonnc.devnetwedge.com/
+2c65175d-8432-4d0e-85d7-267479b1c368,"BCS NC Fund Propco 13 LLC - (Duplin County) 206 North Main Street, Kenansville, NC",,BCS NC Fund Holdco LLC (TX),Duplin,NC,property,12/22/22,"$7,817.07 ",$0.00 ,"1. Dropdown Select 'Account #'
+2. Enter Account # 1000618
+3. Click first link ""BCS Fund Propco 13""
+4. Link will open a pop-up window with tax bill info. This is what should be scraped.",1000618,"206 North Main Street, Kenansville, NC",https://secure.webtaxpay.com/index.php?site=full&county=duplin&state=NC
+af66d8f8-209a-4a9a-ae73-ca02560ebbb4,"BCS NC Fund Propco 14 LLC - 821 Martin Luther King Jr Ave, Oxford, NC (Granville County)",,BCS NC Fund Holdco LLC (TX),Granville,NC,property,12/22/22,"$10,359.78	",,"1. Form fill for 'property address' is 821 Martin Luther King
+2. 2025 record is the first row of table
+3. 2024 record is the second row of table.",,,https://tax.granvillecounty.org/ITSPublic/TaxBillSearch
+b091fee1-f139-4042-bd5d-94377a004986,"BCS NC Fund Propco 15 LLC - (Vance County) 1640 North Garnett Street, Henderson, NC",,BCS NC Fund Holdco LLC (TX),Vance,NC,property,12/22/22,,,1. Direct Link,,,https://vance.ustaxdata.com/account.cfm?parcelID=0044%2006010
+dc6650e8-173f-4f5a-8c8a-cd3a5ac898df,"BCS NC Fund Propco 16 LLC - (Edgecombe County) 2256 North Main Street, Tarboro, NC",,BCS NC Fund Holdco LLC (TX),Edgecombe,NC,property,12/22/22,,,"1. Form fill for 'parcel ID' field is 4739-01-1576-00
+2. Click on text under 'Account Name' for property info",,,https://taxpa.edgecombecountync.gov/paas/?DEST=pSearch&action=Search
+908100fe-b437-445b-a1fb-31b197c26274,"BCS NC Fund Propco 16 LLC - (Town of Tarboro) 2256 North Main Street, Tarboro, NC",,BCS NC Fund Holdco LLC (TX),Town of Tarboro,NC,property,12/22/22,skip,"$3,078.44 ",skip,skip,skip,https://taxpa.edgecombecountync.gov/paas/?DEST=pSearch
+6ac5f946-fb5a-4b04-92fe-60b9ad050eed,"BCS NC Fund Propco 17 LLC - (Edgecombe County) 1122 N. Raleigh Street, Rocky Mount, NC",,BCS NC Fund Holdco LLC (TX),Edgecombe,NC,property,12/22/22,,,"1. Form fill for 'parcel ID' field is  3860-20-0944-00
+2. Click on text under 'Account Name' for property info",,,https://taxpa.edgecombecountync.gov/paas/?DEST=pSearch&action=Search#
+9c7c4c62-5e70-4891-bcd3-bd1124abd6fd,"BCS NC Fund Propco 17 LLC - 1122 N. Raleigh Street, Rocky Mount, NC (Rocky Mount)",,BCS NC Fund Holdco LLC (TX),Rocky Mount,NC,property,12/22/22,skip,skip,skip,skip,skip,https://rockymountnc.munisselfservice.com/css/citizens/RealEstate/Default.aspx?mode=new
+3ae00d9c-1cdf-4bc2-b2eb-34c548dec88a,"BCS NC Fund Propco 18 LLC - (Pitt County) - 715 S. Memorial Drive, Greenville, NC (Pitt County)",,BCS NC Fund Holdco LLC (TX),Pitt,NC,property,12/22/22,,,1. Direct Link,,,https://tax.pittcountync.gov/publicwebaccess/AbstractDetails.aspx?AbstractPk=2969026
+68051304-37a1-4ed6-8d1c-44d3a6efcc74,"BCS NC Fund Propco 19 LLC - (Lenoir County) 3800 W. Vernon Ave., Kinston, NC",,BCS NC Fund Holdco LLC (TX),Lenoir,NC,property,12/22/22,,,"1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.lenoircountytaxes.com/taxes.html#/WildfireSearch
+11bf5daa-bd33-4e7e-8d79-9b4a8d71a126,"BCS NC Fund Propco 20 LLC - 3314 Neuse Blvd, New Bern, NC (Craven County)",,BCS NC Fund Holdco LLC (TX),Craven,NC,property,12/22/22,,,"""1. Form fill for """"account number"""" field.
+2. acct number 116906
+3. page will scroll automatically
+4. record for this property is the last row (year 2025) """,,,https://www.bttaxpayerportal.com/ITSPublicCR/TaxBillSearch
+4e2d098a-0383-452b-9324-41a74dbc76eb,BCS Splendora LLC - Tract #1 - Ben Nevis (1.9407 Acres),,BCS Splendora LLC,Montgomery,TX,property,11/9/23,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000820204701&ownerno=0
+52bfc0dc-7a21-4f71-897e-481930ad1b5a,BCS Splendora LLC - Tract #2 - James Davis (1 Acre),,BCS Splendora LLC,Montgomery,TX,property,9/22/23,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000820203700&ownerno=0
+f0edb7b3-4795-4327-9bbe-e81bc2258fac,BCS Splendora LLC - Tract #3 - Ahmed (1.9196 Acres),,BCS Splendora LLC,Montgomery,TX,property,11/9/23,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0000820208410&ownerno=0
+d7eceb20-cf79-47b5-b59c-871826c34863,Houston QSR Propco LLC - 104 E. Edgewood - Friendswood,,Houston QSR Propco LLC,Galveston,TX,property,6/3/25,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/galveston/showdetail2.jsp?can=371025
+905e0c5f-92ad-4bef-9801-728695e492aa,"Houston QSR Propco LLC - 1702 Nasa Rd, Nassau Bay, TX",,Houston QSR Propco LLC,Harris,TX,property,,,,"1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.hctax.net/property/TaxStatement?account=zh6A2f1+EQ9Mxi1tE9p02yyToS4AkkD/3HxxmCEeKog=
+1519bdd9-bcad-4194-86b4-53f1510db234,"Houston QSR Propco LLC - 2800 FM 1764 Rd, La Marque",,Houston QSR Propco LLC,Galveston,TX,property,6/3/25,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/galveston/showdetail2.jsp?can=400341
+3552c617-074c-44e7-b232-ae6365ea2427,Houston QSR Propco LLC - 3101 FM 528 - Friendswood,,Houston QSR Propco LLC,Harris,TX,property,6/3/25,,,1. Direct Link,,,https://www.hctax.net/property/TaxStatement?account=g/5M7k/T8QbY1VYWmDs9x3hyZoiUWoHNggngr/Jjgn8=
+923c993b-2246-4409-a213-dc97ef5a1d4c,"Houston QSR Propco LLC - 4014 Spencer Hwy, Pasadena",,Houston QSR Propco LLC,Harris,TX,property,6/3/25,,,"1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.hctax.net/property/TaxStatement?account=QixE4kb8ggfILrpi5IEKdK0hpoqpuMMrpGEn8hYxEoc=
+85851a1b-770a-4c16-a085-865f969d0ab5,"OCV Center LLC (111 East Highway 112, Center, CO, 81125)",,OCV Alta Portfolio II LLC,Saguache,CO,property,7/1/22,not posted,"$5,177.00 ","1. Click ""Enter EagleWeb"" button
+2. Enter Account Number in form fill",R017041,111 E HWY 112,https://saguachecountyco-assessor.tylerhost.net/assessor/web/
+580b1521-194d-4a48-94f1-555afd2bbf99,"OCV Colorado Springs LLC (227 Fillmore St, Colorado Springs, CO, 80907)",,OCV Alta Portfolio II LLC,El Paso (CO),CO,property,7/1/22,,"$5,714.92 ","1. Click ""search for taxes"" button
+2. enter account number in form
+3. click download bill",R6331306003,,https://www.paydici.com/el-paso-county-treasurer/search/landing
+06dfeb24-068e-4801-a9a8-cfe67605366e,"OCV Delta LLC (1502 Howard Street, Delta, CO, 81416)",,OCV Alta Portfolio II LLC,Delta,CO,property,7/1/22,$0.00 ,"$4,031.48 ","1. Direct Link
+2. Taxes Due for 2024",R015562,"1502 S MAIN ST., Delta, CO",https://assessor.deltacountyco.gov/assessor/taxweb/account.jsp?accountNum=R015562
+111466a9-91b5-4fce-9b0c-3669f074ebee,"OCV Pueblo I LLC (2714 Thatcher Ave, Pueblo, CO, 81005) - Parcel 1 & 2",,OCV Alta Portfolio II LLC,Pueblo,CO,property,7/1/22,,,"1. Form fill parcel number 1502208001
+2. Click into parcel number. 
+3. Tax info in 'gross tax amount'",1502208001,,http://www.co.pueblo.co.us/cgi-bin/webatrallbroker.wsc/atrpropertysearchall.html
+9a6bbdd9-5e64-4632-b527-5a8885261538,"OCV Pueblo II LLC (1350 E 4th St, Pueblo, CO, 81001)",,OCV Alta Portfolio II LLC,Pueblo,CO,property,7/1/22,,,"1. Form fill for 'Owner Name' is 'OCV Pueblo II'
+2. click account number field link for property information",,,http://www.co.pueblo.co.us/cgi-bin/webatrallbroker.wsc/atrpropertysearchall.html
+fa1f6bdf-50e6-48af-a71c-dd478d2f1612,PE 249 LLC - Capital One (1.656 Acres),,PE 249 LLC,Harris,TX,property,6/14/23,,,"1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.hctax.net/Property/TaxStatement?account=hjXFmdRkUXnxm9u2Wf+XVdbKXFOPTInMzjZbv+qSMd4=
+595e164a-4e36-4099-86fc-b5d5b8440c3a,PE 249 LLC - Capital One (1.656 Acres) - Aldine ISD,,PE 249 LLC,Aldine ISD,TX,property,6/14/23,$0.00 ,"$17,681.40 ",1. Direct Link,1.22E+12,0012650 SH 249,https://tax.aldine.k12.tx.us/Accounts/AccountDetails?taxAccountNumber=1222010010049
+857aec46-9ed8-4848-bdef-54d7af50f719,PE 249 LLC - Northwest Park M.U.D. - Triangle Tract (0.1928 Acres),,PE 249 LLC,Northwest Park M.U.D.,TX,property,11/7/23,,,"1, Direct Link",,,https://www.utilitytaxservice.com/AcctDetail/777/1222010010001
+10c8e244-abb4-4251-bcc1-e3bfd803812f,PE 249 LLC - Northwest Park M.U.D. (1.656 Acres),,PE 249 LLC,Northwest Park M.U.D.,TX,property,6/14/23,,,"1, Direct Link",,,https://www.utilitytaxservice.com/AcctDetail/777/1222010010049
+5aa41e2a-8310-4927-bc03-a1e7d53c5e02,PE 249 LLC - Triangle Tract (0.1928 Acres),,PE 249 LLC,Harris,TX,property,11/7/23,,,"1. Direct Link
+2. ""Final Total Amount Due""",,,https://www.hctax.net/Property/TaxStatement?account=hjXFmdRkUXnxm9u2Wf+XVWo1JZu4cefE9UjmmsXYOMM=
+47113570-a7d5-40dd-b233-608a3110ec7d,PE 249 LLC - Triangle Tract (0.1928 Acres) - Aldine ISD,,PE 249 LLC,Aldine ISD,TX,property,11/7/23,$0.00 ,$434.18 ,1. Direct Link,1.22E+12,0012650 SH 249,https://tax.aldine.k12.tx.us/Accounts/AccountDetails?taxAccountNumber=1222010010001
+64565347-ab42-4c39-b028-a72210048c7d,Riley Fuzzel - Benders Landing - (0.087 acres),,BCS Birnham Woods LLC (TX),Montgomery,TX,property,4/5/23,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0025710301300&ownerno=0
+fb8ac1a7-6666-45bf-9b16-c0018a6dfe3f,Riley Fuzzel - Lindsey Commercial (0.287 acres),,BCS Birnham Woods LLC (TX),Montgomery,TX,property,1/18/23,,,"1. Direct Link
+2. Taxes Due for 2024",,,https://actweb.acttax.com/act_webdev/montgomery/showdetail2.jsp?can=0003510100216&ownerno=0
+ceaa59e5-7d7a-4fca-8581-b413ffe28943,Riley Fuzzel - ParkwayRayford 42 - (1.59 acres),,BCS Birnham Woods LLC (TX),Montgomery,TX,property,12/22/21,,,"1. Direct Link
+2. ""Due for…"" text line",,,https://www.utilitytaxservice.com/AcctDetail/MSC/45937300

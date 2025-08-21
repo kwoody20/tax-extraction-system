@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api_service_enhanced.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.9"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/docs",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/redoc",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/openapi.json",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/health",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/metrics",
+      "dest": "api_service_enhanced.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api_service_enhanced.py"
+    }
+  ],
+  "env": {
+    "ENVIRONMENT": "production",
+    "LOG_LEVEL": "INFO",
+    "ENABLE_CORS": "true",
+    "CORS_ORIGINS": "*",
+    "ENABLE_RATE_LIMITING": "true",
+    "RATE_LIMIT_REQUESTS": "100",
+    "RATE_LIMIT_PERIOD": "60"
+  },
+  "functions": {
+    "api_service_enhanced.py": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
+}
