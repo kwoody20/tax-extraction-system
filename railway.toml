@@ -1,0 +1,13 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -r requirements_railway.txt && playwright install chromium && playwright install-deps"
+
+[deploy]
+startCommand = "uvicorn api_service_supabase:app --host 0.0.0.0 --port ${PORT:-8000}"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "always"
+
+[env]
+NIXPACKS_PYTHON_VERSION = "3.11"
+PORT = "8000"
