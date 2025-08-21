@@ -1,0 +1,13 @@
+[theme]
+primaryColor = "#667eea"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f7fafc"
+textColor = "#2d3748"
+
+[server]
+port = 8502
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

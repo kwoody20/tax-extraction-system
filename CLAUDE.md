@@ -4,9 +4,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a property tax extraction system designed to scrape and extract tax information from various county tax websites. The system handles multiple extraction methods, robust error handling, data validation, and supports both simple HTTP requests and Selenium-based scraping for JavaScript-heavy sites.
+This is a comprehensive property tax extraction system with Supabase integration, designed to scrape and extract tax information from various county tax websites. The system features a REST API, real-time dashboard, database persistence, authentication, and supports both simple HTTP requests and Selenium-based scraping for JavaScript-heavy sites.
 
-## Key Architecture Components
+## 🏗️ System Architecture
+
+### Core Components
+1. **Supabase Database**: PostgreSQL database hosting 102 properties and 43 entities with RLS policies
+2. **REST API**: FastAPI service with Supabase integration (`api_service_supabase.py`, `api_with_auth.py`)
+3. **Dashboard**: Streamlit interface with real-time data visualization (`dashboard_supabase.py`)
+4. **Extraction Engine**: Robust tax extraction with multiple methods
+5. **Authentication**: Supabase Auth with JWT tokens
+
+## 📁 Key Architecture Components
+
+### Database Layer (Supabase)
+- **supabase_client.py**: Database client with sync/async operations
+- **supabase_auth.py**: Authentication manager with JWT handling
+- **supabase/migrations/**: SQL migration files for schema setup
+- PostgreSQL database with 5 core tables: entities, properties, tax_extractions, jurisdictions, entity_relationships
+
+### API Layer
+- **api_service_supabase.py**: Main API with Supabase integration
+- **api_with_auth.py**: Enhanced API with full authentication
+- **api_service_enhanced.py**: Production-ready API with advanced features
+- FastAPI endpoints for properties, entities, extractions, and statistics
+
+### Dashboard Layer
+- **dashboard_supabase.py**: Streamlit dashboard with Supabase integration
+- **dashboard.py**: Original dashboard with enhanced features
+- Real-time data visualization with Plotly charts
+- Authentication with session management
 
 ### Core Extraction Engine
 - **extracting-tests-818/MASTER_TAX_EXTRACTOR.py**: Unified extraction system with Playwright-based extractors for all jurisdictions
@@ -21,62 +48,121 @@ This is a property tax extraction system designed to scrape and extract tax info
 - **error_handling.py**: Retry logic, circuit breakers, and custom exception classes
 - **data_validation.py**: Data validation and sanitization for extracted tax data
 - **test_utilities.py**: Comprehensive testing framework
+- **tax_extractor_client.py**: Python SDK for API integration
 
 ### Data Flow
-1. Excel input file with property information and tax bill URLs
-2. Domain analysis and extraction method selection (HTTP vs Selenium)
-3. Parallel or sequential extraction with error handling
-4. Data validation and normalization
-5. Output to Excel/JSON with validation reports
+1. Properties and entities stored in Supabase database
+2. API triggers extraction jobs for selected properties
+3. Extraction engine fetches tax data from county websites
+4. Results stored back in Supabase with validation
+5. Dashboard displays real-time updates and analytics
+6. Export to Excel/CSV for reporting
+
+## 🚀 Quick Start
+
+### Start All Services
+```bash
+# 1. Start API Service
+python api_service_supabase.py
+
+# 2. Start Dashboard (in new terminal)
+streamlit run dashboard_supabase.py
+
+# 3. Access Services
+# API: http://localhost:8000/docs
+# Dashboard: http://localhost:8502
+```
+
+### Database Credentials
+- **Supabase URL**: https://klscgjbachumeojhxyno.supabase.co
+- **Current Data**: 102 properties, 43 entities
+- **Total Tax Liability**: $50,058.52 outstanding, $434,291.55 previous year
 
 ## Common Commands
+
+### Database Operations
+```bash
+# Import data from CSV to Supabase
+python import_data_to_supabase_fixed.py
+
+# Test Supabase authentication
+python supabase_auth.py test
+
+# Create test users
+python supabase_auth.py create-users
+
+# Verify database data
+python verify_supabase_data.py
+```
+
+### API Operations
+```bash
+# Start API with Supabase integration
+python api_service_supabase.py
+
+# Start API with full authentication
+python api_with_auth.py
+
+# Test API endpoints
+python test_api_supabase.py
+
+# Test authentication flow
+python test_auth_flow.py
+```
+
+### Dashboard Operations
+```bash
+# Start Streamlit dashboard with Supabase
+streamlit run dashboard_supabase.py
+
+# Original dashboard (if needed)
+streamlit run dashboard.py
+```
 
 ### Running Extractors
 ```bash
 # Master extraction system (recommended)
-python3 extracting-tests-818/MASTER_TAX_EXTRACTOR.py OFFICIAL-proptax-assets.csv --concurrent
+python extracting-tests-818/MASTER_TAX_EXTRACTOR.py OFFICIAL-proptax-assets.csv --concurrent
 
 # Selenium-based extraction for Maricopa/Harris
-python3 selenium_tax_extractors.py
+python selenium_tax_extractors.py
 
 # NC property extraction
-python3 process_with_selenium.py phase-two-taxes-8-17.xlsx --headless
+python process_with_selenium.py phase-two-taxes-8-17.xlsx --headless
 
 # Robust extraction with all features
-python3 robust_tax_extractor.py
-
-# Simple analysis
-python3 simple_tax_extractor.py
+python robust_tax_extractor.py
 ```
 
 ### Testing
 ```bash
 # Run test suite
-python3 test_utilities.py
+python test_utilities.py
 
-# Test specific domain extraction
-python3 extracting-tests-818/test_maricopa.py
+# Test API with Supabase
+python test_api_supabase.py
 
-# Test Selenium extractors
-python3 test_selenium_extractors.py
+# Test authentication flow
+python test_auth_flow.py
 
-# Test NC extractors
-python3 test_nc_extractors.py
+# Test specific extractors
+python test_selenium_extractors.py
+python test_nc_extractors.py
 ```
 
 ### Dependencies
 ```bash
-# Install requirements
+# Install all requirements
 pip install -r requirements.txt
+
+# Supabase specific
+pip install supabase
 
 # Install Playwright browsers
 playwright install chromium
 
 # Install ChromeDriver for Selenium (macOS)
 brew install chromedriver
-
-# Required Python packages
-pip install pandas beautifulsoup4 requests playwright selenium openpyxl
 ```
 
 ## Key Extraction Patterns
@@ -131,6 +217,13 @@ pip install pandas beautifulsoup4 requests playwright selenium openpyxl
 
 ## Important Considerations
 
+### System Architecture
+- **Database First**: All property and entity data is stored in Supabase PostgreSQL
+- **API Driven**: Use the FastAPI service for all extraction operations
+- **Dashboard Monitoring**: Real-time monitoring via Streamlit dashboard
+- **Authentication Required**: Supabase Auth with JWT tokens for protected endpoints
+
+### Extraction Best Practices
 - Respect rate limits and robots.txt
 - Handle authentication when required
 - Process in batches for large datasets
@@ -139,3 +232,26 @@ pip install pandas beautifulsoup4 requests playwright selenium openpyxl
 - **Use MASTER_TAX_EXTRACTOR.py** as the primary extraction tool - it includes all the latest fixes
 - **Property vs Tax Validation**: Always verify amounts are taxes (1-3% of property value) not property values
 - **JavaScript Sites**: Use Playwright/Selenium extractors for dynamic content (Maricopa, Harris, some NC counties)
+
+### Supabase Configuration
+- **RLS Policies**: Row Level Security enabled on all tables
+- **Auth Settings**: Email confirmation can be disabled for development
+- **Service URLs**: 
+  - Database: https://klscgjbachumeojhxyno.supabase.co
+  - API: http://localhost:8000
+  - Dashboard: http://localhost:8502
+
+### Current System Status
+- ✅ 102 properties loaded in database
+- ✅ 43 entities configured
+- ✅ API service with authentication
+- ✅ Dashboard with real-time data
+- ✅ Extraction engine integrated
+- ✅ $50,058.52 in outstanding taxes tracked
+- ✅ $434,291.55 in previous year taxes
+
+### Key Files for Reference
+- **SUPABASE_AUTH_GUIDE.md**: Complete authentication setup
+- **DASHBOARD_GUIDE.md**: Dashboard usage instructions
+- **supabase/README.md**: Database schema documentation
+- **SUPABASE_EMAIL_SETUP.md**: Email confirmation configuration
