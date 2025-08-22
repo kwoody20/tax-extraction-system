@@ -61,8 +61,8 @@ This is a comprehensive property tax extraction system with Supabase integration
 ## 🚀 Quick Start
 
 ### Production Deployment
-- **🌐 Live API**: https://web-production-45338.up.railway.app/
-- **📚 API Docs**: https://web-production-45338.up.railway.app/docs
+- **🌐 Live API**: https://tax-extraction-system-production.up.railway.app/
+- **📚 API Docs**: https://tax-extraction-system-production.up.railway.app/docs
 - **🏗️ Platform**: Railway (auto-deploys from GitHub)
 - **📦 Repository**: https://github.com/kwoody20/tax-extraction-system
 
@@ -244,25 +244,25 @@ brew install chromedriver
 - **Auth Settings**: Email confirmation can be disabled for development
 - **Service URLs**: 
   - Database: https://klscgjbachumeojhxyno.supabase.co
-  - Production API: https://web-production-45338.up.railway.app
+  - Production API: https://tax-extraction-system-production.up.railway.app
   - Local API: http://localhost:8000
   - Local Dashboard: http://localhost:8502
 
 ### Current System Status
 - ✅ 102 properties loaded in database
 - ✅ 43 entities configured
-- ✅ API service LIVE at https://web-production-45338.up.railway.app
+- ✅ API service LIVE at https://tax-extraction-system-production.up.railway.app
 - ✅ Dashboard with real-time data (local only, needs deployment)
 - ✅ Extraction engine integrated (local only, needs separate deployment)
 - ✅ $50,058.52 in outstanding taxes tracked
 - ✅ $434,291.55 in previous year taxes
 
 ### Production API Endpoints
-- **Health**: https://web-production-45338.up.railway.app/health
-- **API Docs**: https://web-production-45338.up.railway.app/docs
-- **Properties**: https://web-production-45338.up.railway.app/api/v1/properties
-- **Entities**: https://web-production-45338.up.railway.app/api/v1/entities
-- **Statistics**: https://web-production-45338.up.railway.app/api/v1/statistics
+- **Health**: https://tax-extraction-system-production.up.railway.app/health
+- **API Docs**: https://tax-extraction-system-production.up.railway.app/docs
+- **Properties**: https://tax-extraction-system-production.up.railway.app/api/v1/properties
+- **Entities**: https://tax-extraction-system-production.up.railway.app/api/v1/entities
+- **Statistics**: https://tax-extraction-system-production.up.railway.app/api/v1/statistics
 
 ### Key Files for Reference
 - **SUPABASE_AUTH_GUIDE.md**: Complete authentication setup
