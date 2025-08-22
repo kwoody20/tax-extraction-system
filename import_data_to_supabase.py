@@ -7,11 +7,19 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
 from supabase_client import SupabasePropertyTaxClient
 
-# Supabase credentials
-SUPABASE_URL = "https://klscgjbachumeojhxyno.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3OTU1OTksImV4cCI6MjA3MTM3MTU5OX0.nJF44C6SPe-dNfPit7zTsij2foo67WNY3PFl7lfxquY"
+load_dotenv()
+
+# Supabase credentials from environment
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("Error: Please set SUPABASE_URL and SUPABASE_KEY environment variables")
+    print("You can copy .env.example to .env and fill in your credentials")
+    sys.exit(1)
 
 def main():
     """Main function to import data."""

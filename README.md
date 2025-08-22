@@ -1,6 +1,6 @@
-# Property Tax Extraction System
+# Tax Extraction System
 
-A comprehensive, production-ready system for extracting property tax information from various county tax websites with REST API, dashboard, robust error handling, data validation, and retry mechanisms.
+A comprehensive property tax extraction system with database integration, REST API, and real-time dashboard. This system automates the extraction of tax information from various county tax websites using both HTTP requests and browser automation for JavaScript-heavy sites.
 
 ## Features
 

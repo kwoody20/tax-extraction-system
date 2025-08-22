@@ -42,9 +42,14 @@ class Settings(BaseSettings):
     """Application settings with Supabase integration."""
     
     # Supabase Configuration
-    supabase_url: str = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
-    supabase_key: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3OTU1OTksImV4cCI6MjA3MTM3MTU5OX0.nJF44C6SPe-dNfPit7zTsij2foo67WNY3PFl7lfxquY")
+    supabase_url: str = os.getenv("SUPABASE_URL")
+    supabase_key: str = os.getenv("SUPABASE_KEY")
     supabase_service_key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.supabase_url or not self.supabase_key:
+            raise ValueError("Please set SUPABASE_URL and SUPABASE_KEY environment variables")
     
     # API Configuration
     api_title: str = "Tax Extraction API with Supabase"

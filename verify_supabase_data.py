@@ -3,12 +3,19 @@
 Verify and summarize the imported Supabase data.
 """
 
+import os
 from supabase import create_client
 from collections import defaultdict
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Supabase credentials
-SUPABASE_URL = "https://klscgjbachumeojhxyno.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3OTU1OTksImV4cCI6MjA3MTM3MTU5OX0.nJF44C6SPe-dNfPit7zTsij2foo67WNY3PFl7lfxquY"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Please set SUPABASE_URL and SUPABASE_KEY environment variables")
 
 def main():
     print("=" * 70)
@@ -135,7 +142,7 @@ def main():
     print(f"  • {len(properties.data)} properties")
     print(f"  • ${total_amount_due:,.2f} in total tax amounts")
     print(f"  • {len(extractable)} properties ready for extraction")
-    print("\nDatabase URL: https://supabase.com/dashboard/project/klscgjbachumeojhxyno")
+    print(f"\nDatabase URL: {SUPABASE_URL}")
 
 if __name__ == "__main__":
     main()
