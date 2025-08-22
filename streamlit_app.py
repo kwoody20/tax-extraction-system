@@ -11,7 +11,10 @@ from datetime import datetime
 st.set_page_config(page_title="Tax Dashboard", page_icon="🏢", layout="wide")
 
 # Get API URL from secrets or environment
-API_URL = st.secrets.get("API_URL", "https://tax-extraction-system-production.up.railway.app")
+try:
+    API_URL = st.secrets["API_URL"]
+except:
+    API_URL = "https://tax-extraction-system-production.up.railway.app"
 
 st.title("🏢 Property Tax Dashboard")
 st.write("Real-time monitoring of property tax data")
@@ -25,14 +28,20 @@ with st.sidebar:
     
     # API Status
     st.subheader("🌐 API Status")
-    try:
-        response = requests.get(f"{API_URL}/health", timeout=5)
-        if response.status_code == 200:
-            st.success("✅ API Online")
-        else:
-            st.error("❌ API Offline")
-    except Exception as e:
-        st.error(f"❌ API Error")
+    with st.spinner("Checking API..."):
+        try:
+            response = requests.get(f"{API_URL}/health", timeout=5)
+            data = response.json()
+            if response.status_code == 200 and data.get("status") == "healthy":
+                st.success("✅ API & Database Online")
+            elif response.status_code == 200:
+                st.warning(f"⚠️ API Online, Database Issue")
+                st.caption("Railway needs Supabase credentials")
+            else:
+                st.error(f"❌ API Offline ({response.status_code})")
+        except Exception as e:
+            st.error(f"❌ Cannot reach API")
+            st.caption(f"URL: {API_URL}")
 
 # Main content
 tab1, tab2 = st.tabs(["📊 Overview", "🏢 Properties"])
