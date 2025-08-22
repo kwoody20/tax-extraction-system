@@ -96,7 +96,7 @@ with tab2:
                 
                 with col2:
                     # Entity filter
-                    entities = ["All"] + sorted(df['entity_name'].dropna().unique().tolist()) if 'entity_name' in df.columns else ["All"]
+                    entities = ["All"] + sorted(df['parent_entity_name'].dropna().unique().tolist()) if 'parent_entity_name' in df.columns else ["All"]
                     selected_entity = st.selectbox("🏢 Entity", entities)
                 
                 with col3:
@@ -114,7 +114,7 @@ with tab2:
                 
                 # Apply text search
                 if search_term:
-                    search_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'entity_name']
+                    search_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'parent_entity_name']
                     existing_cols = [col for col in search_cols if col in filtered_df.columns]
                     
                     mask = filtered_df[existing_cols].apply(
@@ -123,8 +123,8 @@ with tab2:
                     filtered_df = filtered_df[mask]
                 
                 # Apply entity filter
-                if selected_entity != "All" and 'entity_name' in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df['entity_name'] == selected_entity]
+                if selected_entity != "All" and 'parent_entity_name' in filtered_df.columns:
+                    filtered_df = filtered_df[filtered_df['parent_entity_name'] == selected_entity]
                 
                 # Apply state filter
                 if selected_state != "All" and 'state' in filtered_df.columns:
@@ -139,14 +139,14 @@ with tab2:
                 with col1:
                     st.metric("Properties Found", len(filtered_df))
                 with col2:
-                    unique_entities = filtered_df['entity_name'].nunique() if 'entity_name' in filtered_df.columns else 0
+                    unique_entities = filtered_df['parent_entity_name'].nunique() if 'parent_entity_name' in filtered_df.columns else 0
                     st.metric("Entities", unique_entities)
                 with col3:
                     unique_states = filtered_df['state'].nunique() if 'state' in filtered_df.columns else 0
                     st.metric("States", unique_states)
                 
                 # Display filtered data
-                display_cols = ['property_name', 'property_address', 'entity_name', 'jurisdiction', 'state']
+                display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state']
                 available_cols = [col for col in display_cols if col in filtered_df.columns]
                 
                 if available_cols and len(filtered_df) > 0:
@@ -210,8 +210,15 @@ with tab3:
                     )
                 else:
                     df_merged = df_props
-                    df_merged['tax_amount'] = 0
-                    df_merged['previous_year_tax'] = 0
+                    # Use amount_due and previous_year_taxes from properties if available
+                    if 'amount_due' in df_merged.columns:
+                        df_merged['tax_amount'] = df_merged['amount_due']
+                    else:
+                        df_merged['tax_amount'] = 0
+                    if 'previous_year_taxes' in df_merged.columns:
+                        df_merged['previous_year_tax'] = df_merged['previous_year_taxes']
+                    else:
+                        df_merged['previous_year_tax'] = 0
                 
                 # Fill NaN values with 0 for tax amounts
                 if 'tax_amount' in df_merged.columns:
@@ -220,8 +227,8 @@ with tab3:
                     df_merged['previous_year_tax'] = df_merged['previous_year_tax'].fillna(0)
                 
                 # Group by entity
-                if 'entity_name' in df_merged.columns:
-                    entity_groups = df_merged.groupby('entity_name').agg({
+                if 'parent_entity_name' in df_merged.columns:
+                    entity_groups = df_merged.groupby('parent_entity_name').agg({
                         'property_name': 'count',
                         'tax_amount': 'sum',
                         'previous_year_tax': 'sum',
@@ -283,7 +290,7 @@ with tab3:
                         st.subheader(f"Entity Details: {selected_entity_detail}")
                         
                         # Get properties for this entity
-                        entity_properties = df_merged[df_merged['entity_name'] == selected_entity_detail]
+                        entity_properties = df_merged[df_merged['parent_entity_name'] == selected_entity_detail]
                         
                         # Entity metrics
                         col1, col2, col3, col4 = st.columns(4)
