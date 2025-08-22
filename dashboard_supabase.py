@@ -12,6 +12,15 @@ import requests
 import json
 from typing import Optional, Dict, List, Any
 import time
+import os
+
+# Page Configuration - MUST be first Streamlit command
+st.set_page_config(
+    page_title="Tax Extraction Dashboard",
+    page_icon="🏢",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 from supabase_client import SupabasePropertyTaxClient
 from supabase_auth import SupabaseAuthManager
@@ -19,7 +28,6 @@ from supabase_auth import SupabaseAuthManager
 # ========================= Configuration =========================
 
 # Configuration - Use Streamlit secrets in production, environment variables locally
-import os
 
 # Try to get from Streamlit secrets first (production), then environment, then defaults
 try:
@@ -35,14 +43,6 @@ except:
         st.error("⚠️ Supabase credentials not configured. Please set SUPABASE_URL and SUPABASE_KEY environment variables.")
         st.info("You can copy .env.example to .env and fill in your credentials")
         st.stop()
-
-# Page Configuration
-st.set_page_config(
-    page_title="Tax Extraction Dashboard",
-    page_icon="🏢",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # ========================= Custom CSS =========================
 
