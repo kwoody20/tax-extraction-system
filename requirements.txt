@@ -1,4 +1,7 @@
 # Streamlit Dashboard Requirements
-# Ultra-minimal for testing
+# Minimal dependencies for cloud deployment
 
 streamlit==1.29.0
+pandas==2.2.0
+requests==2.31.0
+plotly==5.18.0
