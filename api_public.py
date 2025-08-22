@@ -65,9 +65,10 @@ class StatisticsResponse(BaseModel):
 
 # ========================= Endpoints =========================
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
     """Check API and database health."""
+    error_detail = None
     try:
         # Test database connection
         result = supabase.table("properties").select("property_id").limit(1).execute()
@@ -76,12 +77,27 @@ async def health_check():
     except Exception as e:
         db_status = "error"
         status = "unhealthy"
+        error_detail = str(e)
     
-    return HealthResponse(
-        status=status,
-        database=db_status,
-        timestamp=datetime.now().isoformat()
-    )
+    response = {
+        "status": status,
+        "database": db_status,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    # Add error detail if present
+    if error_detail:
+        response["error"] = error_detail
+        
+    # Add debug info
+    response["debug"] = {
+        "supabase_url_configured": bool(SUPABASE_URL),
+        "supabase_key_configured": bool(SUPABASE_KEY),
+        "supabase_url": SUPABASE_URL[:30] + "..." if SUPABASE_URL else None,
+        "key_length": len(SUPABASE_KEY) if SUPABASE_KEY else 0
+    }
+    
+    return response
 
 @app.get("/api/v1/properties")
 async def get_properties(
