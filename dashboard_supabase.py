@@ -22,8 +22,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-from supabase_client import SupabasePropertyTaxClient
-from supabase_auth import SupabaseAuthManager
+# Import with error handling
+try:
+    from supabase_client import SupabasePropertyTaxClient
+    from supabase_auth import SupabaseAuthManager
+except ImportError as e:
+    st.error(f"Failed to import required modules: {e}")
+    st.info("Please ensure all dependencies are installed")
+    st.stop()
 
 # ========================= Configuration =========================
 
@@ -34,7 +40,7 @@ try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
     API_URL = st.secrets["API_URL"]
-except:
+except Exception as e:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
     API_URL = os.getenv("API_URL", "http://localhost:8000")
