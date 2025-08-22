@@ -93,8 +93,10 @@ async def health_check():
     response["debug"] = {
         "supabase_url_configured": bool(SUPABASE_URL),
         "supabase_key_configured": bool(SUPABASE_KEY),
-        "supabase_url": SUPABASE_URL[:30] + "..." if SUPABASE_URL else None,
-        "key_length": len(SUPABASE_KEY) if SUPABASE_KEY else 0
+        "supabase_url": SUPABASE_URL if SUPABASE_URL else None,
+        "key_length": len(SUPABASE_KEY) if SUPABASE_KEY else 0,
+        "key_first_20": SUPABASE_KEY[:20] if SUPABASE_KEY else None,
+        "key_last_20": SUPABASE_KEY[-20:] if SUPABASE_KEY else None
     }
     
     return response
