@@ -30,18 +30,18 @@ This is a comprehensive property tax extraction system with Supabase integration
 - FastAPI endpoints for properties, entities, extractions, and statistics
 
 ### Dashboard Layer
-- **dashboard_supabase.py**: Streamlit dashboard with Supabase integration
-- **dashboard.py**: Original dashboard with enhanced features
+- **streamlit_app.py**: Production dashboard deployed on Streamlit Cloud
+- **dashboard_supabase.py**: Local dashboard with Supabase integration
 - Real-time data visualization with Plotly charts
-- Authentication with session management
+- 5 tabs: Overview, Properties, Entities, Geographic Distribution, Tax Extraction
+- No CSV uploads needed - all data from Supabase
 
 ### Core Extraction Engine
-- **extracting-tests-818/MASTER_TAX_EXTRACTOR.py**: Unified extraction system with Playwright-based extractors for all jurisdictions
-- **robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic, connection pooling, and rate limiting
-- **tax_extractor.py**: Basic HTTP-based extractor template
-- **selenium_tax_extractors.py**: Enhanced Selenium extractors for Maricopa and Harris counties
-- **nc_property_extractors.py**: Specialized extractors for North Carolina counties
-- **simple_tax_extractor.py**: Analysis tool for Excel files and domain categorization
+- **cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
+- **extracting-tests-818/MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
+- **robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic
+- **selenium_tax_extractors.py**: Browser-based extractors for complex sites (local only)
+- **Supported Cloud Jurisdictions**: Montgomery, Fort Bend, Chambers, Galveston, Aldine ISD, Goose Creek ISD, Spring Creek, Barbers Hill ISD
 
 ### Support Modules
 - **config.py**: Configuration management with environment variable support
@@ -60,23 +60,25 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ## 🚀 Quick Start
 
-### Production Deployment
+### Production Deployment (LIVE)
 - **🌐 Live API**: https://tax-extraction-system-production.up.railway.app/
+- **📊 Live Dashboard**: Deployed on Streamlit Cloud
 - **📚 API Docs**: https://tax-extraction-system-production.up.railway.app/docs
-- **🏗️ Platform**: Railway (auto-deploys from GitHub)
+- **🏗️ Platform**: Railway (API) + Streamlit Cloud (Dashboard)
 - **📦 Repository**: https://github.com/kwoody20/tax-extraction-system
+- **🔄 Extraction**: Cloud-ready with 8 supported jurisdictions
 
 ### Local Development
 ```bash
-# 1. Start API Service
-python api_service_supabase.py
+# 1. Start API Service (with extraction)
+python api_public_with_extraction.py
 
 # 2. Start Dashboard (in new terminal)
-streamlit run dashboard_supabase.py
+streamlit run streamlit_app.py
 
 # 3. Access Services
 # API: http://localhost:8000/docs
-# Dashboard: http://localhost:8502
+# Dashboard: http://localhost:8501
 ```
 
 ### Database Credentials
@@ -249,11 +251,12 @@ brew install chromedriver
   - Local Dashboard: http://localhost:8502
 
 ### Current System Status
-- ✅ 102 properties loaded in database
+- ✅ 102 properties loaded in database (95 with account numbers)
 - ✅ 43 entities configured
 - ✅ API service LIVE at https://tax-extraction-system-production.up.railway.app
-- ✅ Dashboard with real-time data (local only, needs deployment)
-- ✅ Extraction engine integrated (local only, needs separate deployment)
+- ✅ Dashboard LIVE on Streamlit Cloud with 5 tabs including extraction
+- ✅ Cloud extraction engine integrated (8 supported jurisdictions)
+- ✅ Geographic distribution visualization added
 - ✅ $50,058.52 in outstanding taxes tracked
 - ✅ $434,291.55 in previous year taxes
 
@@ -263,6 +266,10 @@ brew install chromedriver
 - **Properties**: https://tax-extraction-system-production.up.railway.app/api/v1/properties
 - **Entities**: https://tax-extraction-system-production.up.railway.app/api/v1/entities
 - **Statistics**: https://tax-extraction-system-production.up.railway.app/api/v1/statistics
+- **Extract Single**: POST https://tax-extraction-system-production.up.railway.app/api/v1/extract
+- **Extract Batch**: POST https://tax-extraction-system-production.up.railway.app/api/v1/extract/batch
+- **Extraction Status**: https://tax-extraction-system-production.up.railway.app/api/v1/extract/status
+- **Jurisdictions**: https://tax-extraction-system-production.up.railway.app/api/v1/jurisdictions
 
 ### Key Files for Reference
 - **SUPABASE_AUTH_GUIDE.md**: Complete authentication setup
