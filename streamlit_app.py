@@ -46,7 +46,7 @@ with st.sidebar:
             st.caption(f"URL: {API_URL}")
 
 # Main content
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "🗺️ Geographic Distribution"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "🗺️ Geographic Distribution", "🔄 Tax Extraction"])
 
 with tab1:
     st.header("System Overview")
@@ -603,6 +603,199 @@ with tab4:
             st.warning("Unable to fetch data for geographic analysis")
     except Exception as e:
         st.error(f"Error loading geographic data: {e}")
+
+with tab5:
+    st.header("🔄 Tax Extraction")
+    st.caption("Extract tax data from county websites (Conservative approach)")
+    
+    # Safety warning
+    st.warning("⚠️ **Important**: This feature makes real requests to county tax websites. Please use responsibly and respect rate limits.")
+    
+    # Check if extraction API is available
+    extraction_available = False
+    supported_jurisdictions = []
+    
+    try:
+        # Check if extraction endpoint exists (would need api_with_extraction.py running)
+        test_response = requests.get(f"{API_URL}/api/v1/extract/status", timeout=5)
+        if test_response.status_code == 200:
+            extraction_available = True
+            status_data = test_response.json()
+            supported_jurisdictions = status_data.get("supported_jurisdictions", [])
+    except:
+        pass
+    
+    if not extraction_available:
+        st.info("📝 **Note**: Tax extraction requires the enhanced API to be running locally. Currently using the basic API.")
+        st.code("# To enable extraction, run locally:\npython api_with_extraction.py", language="bash")
+    else:
+        # Extraction interface
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("📋 Select Properties for Extraction")
+            
+            # Get properties that need extraction
+            try:
+                props_response = requests.get(f"{API_URL}/api/v1/properties?needs_extraction=true&limit=100", timeout=10)
+                if props_response.status_code == 200:
+                    properties = props_response.json().get("properties", [])
+                    
+                    if properties:
+                        # Filter for supported jurisdictions
+                        supported_props = []
+                        unsupported_props = []
+                        
+                        for prop in properties:
+                            jurisdiction = prop.get("jurisdiction", "")
+                            is_supported = any(
+                                s.lower() in jurisdiction.lower() 
+                                for s in supported_jurisdictions
+                            )
+                            if is_supported:
+                                supported_props.append(prop)
+                            else:
+                                unsupported_props.append(prop)
+                        
+                        if supported_props:
+                            st.success(f"✅ Found {len(supported_props)} properties in supported jurisdictions")
+                            
+                            # Create selection dataframe
+                            import pandas as pd
+                            df_props = pd.DataFrame(supported_props)
+                            df_props['select'] = False
+                            
+                            # Display with selection
+                            st.write("Select properties to extract (max 5 at a time):")
+                            
+                            selected_indices = st.multiselect(
+                                "Choose properties:",
+                                options=range(len(supported_props)),
+                                format_func=lambda x: f"{supported_props[x]['property_name'][:50]} ({supported_props[x]['jurisdiction']})",
+                                max_selections=5
+                            )
+                            
+                            if selected_indices:
+                                selected_props = [supported_props[i] for i in selected_indices]
+                                
+                                st.write(f"**Selected {len(selected_props)} properties:**")
+                                for prop in selected_props:
+                                    st.write(f"• {prop['property_name'][:60]} - {prop['jurisdiction']}")
+                                
+                                # Extract button
+                                if st.button("🚀 Start Extraction", type="primary", use_container_width=True):
+                                    with st.spinner("Extracting tax data..."):
+                                        success_count = 0
+                                        fail_count = 0
+                                        
+                                        progress_bar = st.progress(0)
+                                        status_text = st.empty()
+                                        
+                                        for i, prop in enumerate(selected_props):
+                                            status_text.text(f"Processing: {prop['property_name'][:40]}...")
+                                            
+                                            # Make extraction request
+                                            extraction_request = {
+                                                "property_id": prop["id"],
+                                                "jurisdiction": prop["jurisdiction"],
+                                                "tax_bill_link": prop.get("tax_bill_link", ""),
+                                                "account_number": prop.get("account_number"),
+                                                "property_name": prop.get("property_name")
+                                            }
+                                            
+                                            try:
+                                                extract_response = requests.post(
+                                                    f"{API_URL}/api/v1/extract",
+                                                    json=extraction_request,
+                                                    timeout=30
+                                                )
+                                                
+                                                if extract_response.status_code == 200:
+                                                    result = extract_response.json()
+                                                    if result.get("success"):
+                                                        success_count += 1
+                                                        st.success(f"✅ Extracted: ${result.get('tax_amount', 0):.2f}")
+                                                    else:
+                                                        fail_count += 1
+                                                        st.error(f"❌ Failed: {result.get('error_message', 'Unknown error')}")
+                                                else:
+                                                    fail_count += 1
+                                                    st.error(f"❌ API error: {extract_response.status_code}")
+                                                    
+                                            except Exception as e:
+                                                fail_count += 1
+                                                st.error(f"❌ Error: {str(e)[:100]}")
+                                            
+                                            # Update progress
+                                            progress_bar.progress((i + 1) / len(selected_props))
+                                            
+                                            # Rate limiting
+                                            if i < len(selected_props) - 1:
+                                                import time
+                                                time.sleep(2)
+                                        
+                                        status_text.text("Extraction complete!")
+                                        
+                                        # Show results
+                                        st.balloons()
+                                        st.success(f"""
+                                        **Extraction Complete!**
+                                        - ✅ Successful: {success_count}
+                                        - ❌ Failed: {fail_count}
+                                        """)
+                                        
+                                        if st.button("🔄 Refresh Dashboard"):
+                                            st.rerun()
+                            
+                        else:
+                            st.warning("No properties found in supported jurisdictions that need extraction")
+                        
+                        if unsupported_props:
+                            with st.expander(f"⚠️ {len(unsupported_props)} properties in unsupported jurisdictions"):
+                                for prop in unsupported_props[:10]:
+                                    st.write(f"• {prop['property_name'][:50]} - {prop['jurisdiction']}")
+                                if len(unsupported_props) > 10:
+                                    st.write(f"... and {len(unsupported_props) - 10} more")
+                    else:
+                        st.info("All properties have been extracted! 🎉")
+                        
+            except Exception as e:
+                st.error(f"Error loading properties: {e}")
+        
+        with col2:
+            st.subheader("ℹ️ Extraction Info")
+            
+            # Show supported jurisdictions
+            st.write("**Supported Jurisdictions:**")
+            for jur in supported_jurisdictions:
+                st.write(f"• {jur}")
+            
+            # Show extraction statistics
+            try:
+                status_response = requests.get(f"{API_URL}/api/v1/extract/status", timeout=5)
+                if status_response.status_code == 200:
+                    status = status_response.json()
+                    
+                    st.metric("Total Properties", status.get("total_properties", 0))
+                    st.metric("Already Extracted", status.get("extracted_count", 0))
+                    st.metric("Pending Extraction", status.get("pending_count", 0))
+                    
+                    if status.get("total_properties", 0) > 0:
+                        progress = status.get("extracted_count", 0) / status.get("total_properties", 1)
+                        st.progress(progress)
+                        st.caption(f"{progress*100:.1f}% complete")
+                        
+            except:
+                pass
+            
+            # Safety guidelines
+            st.info("""
+            **Safety Guidelines:**
+            - Max 5 properties at once
+            - 2 second delay between requests
+            - Only supported jurisdictions
+            - Respects robots.txt
+            """)
 
 st.divider()
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
