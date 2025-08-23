@@ -7,6 +7,8 @@ import pandas as pd
 import requests
 import os
 from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Tax Dashboard", page_icon="🏢", layout="wide")
 
@@ -44,7 +46,7 @@ with st.sidebar:
             st.caption(f"URL: {API_URL}")
 
 # Main content
-tab1, tab2, tab3 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "🗺️ Geographic Distribution"])
 
 with tab1:
     st.header("System Overview")
@@ -337,6 +339,270 @@ with tab3:
             st.warning("Unable to fetch data")
     except Exception as e:
         st.error(f"Error: {e}")
+
+with tab4:
+    st.header("🗺️ Geographic Distribution")
+    st.caption("Property tax distribution across states and counties")
+    
+    # Fetch data for geographic analysis
+    try:
+        props_response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
+        extractions_response = requests.get(f"{API_URL}/api/v1/extractions", timeout=10)
+        
+        if props_response.status_code == 200:
+            properties = props_response.json().get("properties", [])
+            extractions = extractions_response.json().get("extractions", []) if extractions_response.status_code == 200 else []
+            
+            if properties:
+                df_props = pd.DataFrame(properties)
+                df_extracts = pd.DataFrame(extractions) if extractions else pd.DataFrame()
+                
+                # Merge with extraction data if available
+                if not df_extracts.empty and 'property_id' in df_extracts.columns:
+                    if 'extraction_date' in df_extracts.columns:
+                        df_extracts['extraction_date'] = pd.to_datetime(df_extracts['extraction_date'])
+                        latest_extracts = df_extracts.sort_values('extraction_date').groupby('property_id').last()
+                    else:
+                        latest_extracts = df_extracts.groupby('property_id').last()
+                    
+                    df_merged = df_props.merge(
+                        latest_extracts[['tax_amount'] if 'tax_amount' in latest_extracts.columns else []],
+                        left_on='id',
+                        right_index=True,
+                        how='left'
+                    )
+                else:
+                    df_merged = df_props
+                    if 'amount_due' in df_merged.columns:
+                        df_merged['tax_amount'] = df_merged['amount_due']
+                    else:
+                        df_merged['tax_amount'] = 0
+                
+                # Fill NaN values
+                df_merged['tax_amount'] = df_merged['tax_amount'].fillna(0)
+                
+                # Create two columns for layout
+                col1, col2 = st.columns(2)
+                
+                # State-level analysis
+                with col1:
+                    st.subheader("📍 Distribution by State")
+                    
+                    if 'state' in df_merged.columns:
+                        state_stats = df_merged.groupby('state').agg({
+                            'property_name': 'count',
+                            'tax_amount': 'sum'
+                        }).reset_index()
+                        state_stats.columns = ['State', 'Property Count', 'Total Tax']
+                        state_stats = state_stats.sort_values('Total Tax', ascending=False)
+                        
+                        # Create pie chart for property distribution
+                        fig_pie = px.pie(
+                            state_stats, 
+                            values='Property Count', 
+                            names='State',
+                            title='Properties by State',
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.qualitative.Set3
+                        )
+                        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+                        fig_pie.update_layout(height=400)
+                        st.plotly_chart(fig_pie, use_container_width=True)
+                        
+                        # Bar chart for tax amounts
+                        fig_bar = px.bar(
+                            state_stats,
+                            x='State',
+                            y='Total Tax',
+                            title='Total Tax Amount by State',
+                            text='Total Tax',
+                            color='Total Tax',
+                            color_continuous_scale='Blues'
+                        )
+                        fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+                        fig_bar.update_layout(height=400, showlegend=False)
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                
+                # County/Jurisdiction analysis
+                with col2:
+                    st.subheader("🏛️ Distribution by County/Jurisdiction")
+                    
+                    if 'jurisdiction' in df_merged.columns:
+                        # Group by jurisdiction
+                        county_stats = df_merged.groupby(['jurisdiction', 'state']).agg({
+                            'property_name': 'count',
+                            'tax_amount': 'sum'
+                        }).reset_index()
+                        county_stats.columns = ['Jurisdiction', 'State', 'Property Count', 'Total Tax']
+                        county_stats['Location'] = county_stats['Jurisdiction'] + ', ' + county_stats['State']
+                        county_stats = county_stats.sort_values('Total Tax', ascending=False)
+                        
+                        # Top 10 jurisdictions by property count
+                        top_jurisdictions = county_stats.nlargest(10, 'Property Count')
+                        
+                        fig_top = px.bar(
+                            top_jurisdictions,
+                            y='Location',
+                            x='Property Count',
+                            title='Top 10 Jurisdictions by Property Count',
+                            orientation='h',
+                            text='Property Count',
+                            color='Property Count',
+                            color_continuous_scale='Greens'
+                        )
+                        fig_top.update_traces(texttemplate='%{text}', textposition='outside')
+                        fig_top.update_layout(height=400, showlegend=False)
+                        st.plotly_chart(fig_top, use_container_width=True)
+                        
+                        # Top 10 jurisdictions by tax amount
+                        top_tax_jurisdictions = county_stats.nlargest(10, 'Total Tax')
+                        
+                        fig_tax = px.bar(
+                            top_tax_jurisdictions,
+                            y='Location',
+                            x='Total Tax',
+                            title='Top 10 Jurisdictions by Tax Amount',
+                            orientation='h',
+                            text='Total Tax',
+                            color='Total Tax',
+                            color_continuous_scale='Reds'
+                        )
+                        fig_tax.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+                        fig_tax.update_layout(height=400, showlegend=False)
+                        st.plotly_chart(fig_tax, use_container_width=True)
+                
+                # Detailed geographic breakdown table
+                st.subheader("📊 Detailed Geographic Breakdown")
+                
+                # Create summary by state and jurisdiction
+                if 'state' in df_merged.columns and 'jurisdiction' in df_merged.columns:
+                    geographic_summary = df_merged.groupby(['state', 'jurisdiction']).agg({
+                        'property_name': 'count',
+                        'tax_amount': 'sum',
+                        'parent_entity_name': lambda x: len(x.dropna().unique()) if 'parent_entity_name' in df_merged.columns else 0
+                    }).reset_index()
+                    
+                    geographic_summary.columns = ['State', 'Jurisdiction', 'Properties', 'Total Tax', 'Entities']
+                    geographic_summary = geographic_summary.sort_values(['State', 'Total Tax'], ascending=[True, False])
+                    
+                    # Add state totals
+                    state_totals = geographic_summary.groupby('State').agg({
+                        'Properties': 'sum',
+                        'Total Tax': 'sum',
+                        'Entities': 'sum'
+                    }).reset_index()
+                    
+                    # Display metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total States", len(state_totals))
+                    with col2:
+                        st.metric("Total Jurisdictions", len(geographic_summary))
+                    with col3:
+                        st.metric("Avg Properties per State", f"{state_totals['Properties'].mean():.1f}")
+                    with col4:
+                        st.metric("Avg Tax per Property", f"${(geographic_summary['Total Tax'].sum() / geographic_summary['Properties'].sum()):,.2f}")
+                    
+                    # Interactive treemap
+                    if len(geographic_summary) > 0:
+                        st.subheader("🗺️ Interactive Tax Distribution Map")
+                        
+                        # Prepare data for treemap
+                        treemap_data = geographic_summary.copy()
+                        treemap_data['Tax_Display'] = treemap_data['Total Tax'].apply(lambda x: f"${x:,.0f}")
+                        treemap_data['hover_text'] = (
+                            treemap_data['Jurisdiction'] + '<br>' +
+                            'Properties: ' + treemap_data['Properties'].astype(str) + '<br>' +
+                            'Total Tax: ' + treemap_data['Tax_Display'] + '<br>' +
+                            'Entities: ' + treemap_data['Entities'].astype(str)
+                        )
+                        
+                        fig_treemap = px.treemap(
+                            treemap_data,
+                            path=['State', 'Jurisdiction'],
+                            values='Total Tax',
+                            title='Property Tax Distribution Hierarchy',
+                            color='Total Tax',
+                            color_continuous_scale='RdYlBu_r',
+                            hover_data={'hover_text': True, 'Total Tax': False}
+                        )
+                        fig_treemap.update_traces(
+                            textinfo="label+value",
+                            hovertemplate='%{customdata[0]}<extra></extra>'
+                        )
+                        fig_treemap.update_layout(height=600)
+                        st.plotly_chart(fig_treemap, use_container_width=True)
+                    
+                    # Display detailed table
+                    st.subheader("📋 Geographic Summary Table")
+                    
+                    # Format for display
+                    display_geo = geographic_summary.copy()
+                    display_geo['Avg Tax per Property'] = geographic_summary.apply(
+                        lambda row: f"${row['Total Tax'] / row['Properties']:,.2f}" 
+                        if row['Properties'] > 0 else "$0.00", axis=1
+                    )
+                    display_geo['Total Tax'] = display_geo['Total Tax'].apply(lambda x: f"${x:,.2f}")
+                    
+                    st.dataframe(display_geo, use_container_width=True, height=400)
+                    
+                    # Download button
+                    csv = geographic_summary.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Geographic Breakdown",
+                        data=csv,
+                        file_name=f"geographic_breakdown_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+                    
+                    # State comparison chart
+                    st.subheader("📈 State Comparison")
+                    
+                    # Create comparison metrics
+                    state_comparison = state_totals.copy()
+                    state_comparison['Avg Tax per Property'] = state_comparison['Total Tax'] / state_comparison['Properties']
+                    state_comparison = state_comparison.sort_values('Total Tax', ascending=False)
+                    
+                    # Create grouped bar chart
+                    fig_comparison = go.Figure()
+                    
+                    fig_comparison.add_trace(go.Bar(
+                        name='Properties',
+                        x=state_comparison['State'],
+                        y=state_comparison['Properties'],
+                        yaxis='y',
+                        offsetgroup=1,
+                        marker_color='lightblue'
+                    ))
+                    
+                    fig_comparison.add_trace(go.Bar(
+                        name='Total Tax (in $10k)',
+                        x=state_comparison['State'],
+                        y=state_comparison['Total Tax'] / 10000,
+                        yaxis='y',
+                        offsetgroup=2,
+                        marker_color='lightgreen'
+                    ))
+                    
+                    fig_comparison.update_layout(
+                        title='State-by-State Comparison',
+                        xaxis=dict(title='State'),
+                        yaxis=dict(title='Count / Amount'),
+                        barmode='group',
+                        height=400,
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig_comparison, use_container_width=True)
+                    
+                else:
+                    st.info("Geographic data not available for analysis")
+            else:
+                st.info("No property data available")
+        else:
+            st.warning("Unable to fetch data for geographic analysis")
+    except Exception as e:
+        st.error(f"Error loading geographic data: {e}")
 
 st.divider()
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
