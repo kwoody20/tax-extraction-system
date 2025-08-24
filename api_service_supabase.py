@@ -33,6 +33,7 @@ from dotenv import load_dotenv
 # from robust_tax_extractor import RobustTaxExtractor
 # TODO: Switch to MASTER_TAX_EXTRACTOR when integrating extraction
 from supabase_client import SupabasePropertyTaxClient, AsyncSupabasePropertyTaxClient
+from cloud_extractor_enhanced import EnhancedCloudTaxExtractor, extract_tax_data
 
 load_dotenv()
 
@@ -618,6 +619,77 @@ async def get_jurisdictions(
         }
     except Exception as e:
         logger.error(f"Failed to get jurisdictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/extract-enhanced")
+async def extract_enhanced(
+    property_id: str,
+    auth: dict = Depends(verify_token)
+):
+    """
+    Enhanced extraction endpoint with browser automation support.
+    Tests the new extraction capabilities for jurisdictions requiring browser automation.
+    """
+    try:
+        db_client = db_manager.get_client()
+        
+        # Get property details
+        property_data = db_client.get_property(property_id)
+        if not property_data:
+            raise HTTPException(status_code=404, detail="Property not found")
+        
+        # Prepare extraction data
+        extraction_data = {
+            "jurisdiction": property_data.get("jurisdiction"),
+            "tax_bill_link": property_data.get("tax_bill_link"),
+            "account_number": property_data.get("acct_number")
+        }
+        
+        # Use enhanced extractor with browser support
+        result = await asyncio.to_thread(extract_tax_data, extraction_data)
+        
+        # Store result in database if successful
+        if result.get("success"):
+            extraction_record = {
+                "property_id": property_id,
+                "extraction_date": datetime.utcnow().isoformat(),
+                "amount_due": result.get("amount_due"),
+                "extraction_method": result.get("method"),
+                "extraction_duration": result.get("duration"),
+                "status": "success",
+                "raw_data": result
+            }
+            db_client.create_extraction(extraction_record)
+        
+        return {
+            "success": result.get("success", False),
+            "property_id": property_id,
+            "jurisdiction": property_data.get("jurisdiction"),
+            "extraction_result": result
+        }
+        
+    except Exception as e:
+        logger.error(f"Enhanced extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/extraction-capabilities")
+async def get_extraction_capabilities():
+    """
+    Get information about extraction capabilities including supported jurisdictions.
+    """
+    try:
+        extractor = EnhancedCloudTaxExtractor()
+        
+        return {
+            "success": True,
+            "total_supported": len(extractor.get_supported_jurisdictions()),
+            "http_only": extractor.get_http_only_jurisdictions(),
+            "browser_required": extractor.get_browser_required_jurisdictions(),
+            "playwright_available": extractor.__dict__.get("PLAYWRIGHT_AVAILABLE", False),
+            "selenium_available": extractor.__dict__.get("SELENIUM_AVAILABLE", False)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get extraction capabilities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/sync-database")

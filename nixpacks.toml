@@ -1,0 +1,24 @@
+# Railway Nixpacks configuration for browser automation support
+# This file configures the build environment to include browsers for Playwright/Selenium
+
+[phases.setup]
+nixPkgs = ["chromium", "playwright-driver.browsers"]
+
+[phases.install]
+cmds = [
+    "pip install -r requirements-railway.txt",
+    "playwright install chromium",
+    "playwright install-deps chromium"
+]
+
+[phases.build]
+cmds = [
+    "echo 'Build complete with browser automation support'"
+]
+
+[start]
+cmd = "uvicorn api_service_supabase:app --host 0.0.0.0 --port $PORT"
+
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "0"
