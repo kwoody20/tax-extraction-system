@@ -327,10 +327,12 @@ class CloudTaxExtractor:
             # ISD sites often have simple formats
             tax_amount = None
             patterns = [
+                r'DUE AMOUNT[:\s]+\$?([\d,]+\.?\d*)',  # Goose Creek ISD format
                 r'Total Due[:\s]+\$?([\d,]+\.?\d*)',
                 r'Tax Due[:\s]+\$?([\d,]+\.?\d*)',
                 r'Amount Due[:\s]+\$?([\d,]+\.?\d*)',
                 r'Balance[:\s]+\$?([\d,]+\.?\d*)',
+                r'Current.*Due[:\s]+\$?([\d,]+\.?\d*)',
                 r'\$\s*([\d,]+\.?\d*)\s*(?:due|total|balance)'
             ]
             
@@ -339,19 +341,31 @@ class CloudTaxExtractor:
                 if match:
                     try:
                         amount = float(match.group(1).replace(',', ''))
-                        if amount > 0 and amount < 100000:  # Sanity check for ISD
+                        # Accept $0.00 as valid (means paid)
+                        if 0 <= amount < 100000:  # Changed to accept 0
                             tax_amount = amount
                             break
                     except:
                         pass
             
-            return {
-                "success": True if tax_amount else False,
-                "tax_amount": tax_amount,
-                "jurisdiction": jurisdiction,
-                "extraction_method": "HTTP",
-                "error": None if tax_amount else "Could not find tax amount"
-            }
+            # Return success even for $0.00 (which means taxes are paid)
+            if tax_amount is not None:
+                status_msg = "PAID - No amount due" if tax_amount == 0 else f"DUE - ${tax_amount:.2f}"
+                return {
+                    "success": True,
+                    "tax_amount": tax_amount,
+                    "jurisdiction": jurisdiction,
+                    "extraction_method": "HTTP",
+                    "status": status_msg
+                }
+            else:
+                return {
+                    "success": False,
+                    "tax_amount": None,
+                    "jurisdiction": jurisdiction,
+                    "extraction_method": "HTTP",
+                    "error": "Could not find tax amount on page"
+                }
             
         except Exception as e:
             return {"success": False, "error": str(e)}
