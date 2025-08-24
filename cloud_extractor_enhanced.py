@@ -15,12 +15,14 @@ from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 import json
 
-# Browser automation imports
+# Browser automation imports - optional for cloud deployment
 try:
     from playwright.async_api import async_playwright, Page, Browser
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
+    Page = None
+    Browser = None
     logging.warning("Playwright not available - browser extraction disabled")
 
 try:

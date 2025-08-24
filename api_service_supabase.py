@@ -678,6 +678,7 @@ async def get_extraction_capabilities():
     Get information about extraction capabilities including supported jurisdictions.
     """
     try:
+        from cloud_extractor_enhanced import PLAYWRIGHT_AVAILABLE, SELENIUM_AVAILABLE
         extractor = EnhancedCloudTaxExtractor()
         
         return {
@@ -685,8 +686,9 @@ async def get_extraction_capabilities():
             "total_supported": len(extractor.get_supported_jurisdictions()),
             "http_only": extractor.get_http_only_jurisdictions(),
             "browser_required": extractor.get_browser_required_jurisdictions(),
-            "playwright_available": extractor.__dict__.get("PLAYWRIGHT_AVAILABLE", False),
-            "selenium_available": extractor.__dict__.get("SELENIUM_AVAILABLE", False)
+            "playwright_available": PLAYWRIGHT_AVAILABLE,
+            "selenium_available": SELENIUM_AVAILABLE,
+            "note": "Browser automation may not be available in all deployment environments"
         }
     except Exception as e:
         logger.error(f"Failed to get extraction capabilities: {str(e)}")
