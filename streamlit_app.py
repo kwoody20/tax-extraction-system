@@ -87,8 +87,13 @@ with tab2:
             if properties:
                 df = pd.DataFrame(properties)
                 
-                # Display key columns
-                display_cols = ['property_name', 'property_address', 'jurisdiction', 'state']
+                # Format date column if present
+                if 'tax_due_date' in df.columns:
+                    df['tax_due_date'] = pd.to_datetime(df['tax_due_date'], errors='coerce').dt.strftime('%m/%d/%Y')
+                    df['tax_due_date'] = df['tax_due_date'].fillna('')
+                
+                # Display key columns including new fields
+                display_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'tax_due_date', 'paid_by']
                 available_cols = [col for col in display_cols if col in df.columns]
                 
                 if available_cols:
