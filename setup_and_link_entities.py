@@ -13,7 +13,7 @@ load_dotenv()
 
 # Initialize Supabase client with service role key for schema changes
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsc2NnamJhY2h1bWVvamh4eW5vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTc5NTU5OSwiZXhwIjoyMDcxMzcxNTk5fQ.QlATw42GJhAvSr1DEwgfOQpHN_ZRN19Nsxc9v6o74Q8")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def add_parent_entity_column():
     """Add parent_entity_id column to entities table using REST API."""
