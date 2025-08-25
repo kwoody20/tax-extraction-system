@@ -154,7 +154,9 @@ class SupabasePropertyTaxClient:
                     "extraction_steps": row.get("Extraction Steps"),
                     "account_number": str(row.get("Acct Number")) if pd.notna(row.get("Acct Number")) else None,
                     "property_address": row.get("Property Address"),
-                    "tax_bill_link": row.get("Tax Bill Link")
+                    "tax_bill_link": row.get("Tax Bill Link"),
+                    "tax_due_date": pd.to_datetime(row.get("Tax Due Date")).date().isoformat() if pd.notna(row.get("Tax Due Date")) else None,
+                    "paid_by": row.get("Paid By") if pd.notna(row.get("Paid By")) else None
                 }
                 
                 self.upsert_property(property_data)
