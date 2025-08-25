@@ -22,7 +22,7 @@ Railway is perfect for this project because it supports:
 
 ### Step 1: Install Railway CLI
 ```bash
-# Install via npm (you already did this)
+# Install via npm
 npm install -g @railway/cli
 
 # Or via brew (macOS)
@@ -67,13 +67,16 @@ railway up -c requirements_railway.txt
 railway open
 ```
 
-## 🔧 Configuration Files Created
+## 🔧 Configuration Files
 
+### Available Configuration Files
 1. **railway.json** - Main Railway configuration
 2. **railway.toml** - Alternative TOML config
 3. **Procfile** - Process definitions
-4. **nixpacks.toml** - Build configuration
+4. **nixpacks.toml** - Build configuration for Playwright/Selenium
 5. **requirements_railway.txt** - Full dependencies
+6. **requirements_minimal.txt** - Minimal dependencies for quick deploy
+7. **requirements_basic.txt** - Basic dependencies without browser automation
 
 ## 🌐 Services Architecture on Railway
 
@@ -93,16 +96,16 @@ Railway Platform
     └── Redis Queue
 ```
 
-## 📝 Environment Variables for Railway
+## 📝 Environment Variables
 
-### Required:
+### Required
 ```env
 SUPABASE_URL=https://klscgjbachumeojhxyno.supabase.co
 SUPABASE_KEY=your_anon_key_here
 PORT=8000  # Railway sets this automatically
 ```
 
-### Optional but Recommended:
+### Optional but Recommended
 ```env
 SUPABASE_SERVICE_KEY=your_service_key
 ENVIRONMENT=production
@@ -114,56 +117,25 @@ ENABLE_CORS=true
 CORS_ORIGINS=*
 ```
 
-## 🎯 Post-Deployment Steps
+## 🎯 Deployment Options
 
-### 1. Verify Services
+### Option 1: Minimal Deployment (Quick Start)
+Start with basic API without browser automation:
 ```bash
-# Check deployment status
-railway status
-
-# View logs
-railway logs
-
-# Check API health
-curl https://your-app.railway.app/health
-```
-
-### 2. Set Up Custom Domain (Optional)
-```bash
-railway domain
-```
-
-### 3. Enable Monitoring
-- Railway provides built-in metrics
-- Access via Railway dashboard
-- Set up alerts for failures
-
-### 4. Scale If Needed
-```bash
-# Scale up instances
-railway scale --replicas 2
-```
-
-## 🔍 Deployment Options
-
-### Option 1: Single Service (Recommended to Start)
-Deploy just the API first:
-```bash
+# Use minimal requirements
+cp requirements_minimal.txt requirements.txt
 railway up
 ```
-Access at: `https://your-app.railway.app`
 
-### Option 2: Multiple Services
-Deploy API and Dashboard separately:
+### Option 2: Full Deployment (All Features)
+Deploy with complete extraction capabilities:
 ```bash
-# Deploy API
-railway up --service api
-
-# Deploy Dashboard (in new terminal)
-railway up --service dashboard
+# Use full requirements
+cp requirements_railway.txt requirements.txt
+railway up
 ```
 
-### Option 3: Use Railway UI
+### Option 3: Use Railway Web UI
 1. Go to [railway.app](https://railway.app)
 2. New Project → Deploy from GitHub
 3. Connect your repository
@@ -171,43 +143,78 @@ railway up --service dashboard
 5. Add environment variables in UI
 6. Deploy!
 
-## ⚠️ Important Notes
-
-1. **First Deploy**: May take 5-10 minutes (installing Playwright browsers)
-2. **Costs**: Railway offers $5 free credits monthly, then ~$20/month for this app
-3. **Database**: Supabase remains external (free tier is sufficient)
-4. **Extraction**: All features work including Selenium/Playwright!
-
 ## 🐛 Troubleshooting
 
-### If deployment fails:
+### Common Issues & Solutions
+
+#### Build Failures ("pip not found")
+Railway's nixpacks auto-detects Python from requirements.txt. Solutions:
+```bash
+# Ensure requirements.txt exists
+ls requirements.txt
+
+# Use simpler requirements
+cp requirements_basic.txt requirements.txt
+railway up
+```
+
+#### Module Import Errors
+If imports fail, ensure correct dependencies:
 ```bash
 # Check logs
 railway logs
 
-# Use simpler requirements file
-cp requirements.txt requirements_railway.txt
+# Try minimal approach first
+echo "fastapi==0.104.1
+uvicorn[standard]==0.24.0
+supabase==2.15.1
+pandas==2.1.3
+python-dotenv==1.0.0" > requirements.txt
+
 railway up
 ```
 
-### If Playwright doesn't work:
+#### Playwright/Selenium Not Working
+Use nixpacks.toml configuration:
 ```bash
-# Ensure nixpacks.toml is being used
+# Deploy with nixpacks config
 railway up --config nixpacks.toml
 ```
 
-### If port issues occur:
+#### Port Binding Issues
 ```bash
 # Railway sets PORT automatically
-# Make sure code uses: ${PORT:-8000}
+# Ensure your code uses: ${PORT:-8000}
+# Check api_service_supabase.py has:
+# port = int(os.environ.get("PORT", 8000))
 ```
 
-## ✅ Verification Commands
+### Railway Dashboard Settings
+If CLI issues persist, use Railway Dashboard:
+1. Go to your project at railway.app
+2. Settings → Build Command: (leave empty - auto-detect)
+3. Settings → Start Command: `uvicorn api_service_supabase:app --host 0.0.0.0 --port $PORT`
+4. Variables → Add SUPABASE_URL and SUPABASE_KEY
+5. Trigger redeploy
 
-After deployment, test your API:
+## ✅ Post-Deployment Verification
+
+### Step 1: Check Deployment Status
 ```bash
-# Test health endpoint
+# Check status
+railway status
+
+# View logs
+railway logs
+```
+
+### Step 2: Test API Endpoints
+```bash
+# Test health check
 curl https://your-app.railway.app/health
+
+# Expected response:
+# {"status": "healthy", "database": "connected", ...}
 
 # Test API docs
 open https://your-app.railway.app/docs
@@ -216,14 +223,56 @@ open https://your-app.railway.app/docs
 curl https://your-app.railway.app/api/v1/properties?limit=1
 ```
 
+### Step 3: Verify Available Endpoints
+Your Railway app should have these endpoints working:
+
+1. **Health Check**: `/health`
+2. **API Documentation**: `/docs` and `/redoc`
+3. **Properties**: `/api/v1/properties`
+4. **Entities**: `/api/v1/entities`
+5. **Statistics**: `/api/v1/statistics`
+6. **Extraction**: `/api/v1/extract` (if full deployment)
+
 ## 🎉 Success Indicators
 
 You'll know deployment is successful when:
 - ✅ `/health` returns `{"status": "healthy"}`
 - ✅ `/docs` shows FastAPI documentation
-- ✅ Dashboard loads at your-app.railway.app:8502
-- ✅ Can fetch properties from Supabase
-- ✅ Tax extraction jobs can be created
+- ✅ Can fetch properties from Supabase (102 properties)
+- ✅ Can fetch entities (43 entities)
+- ✅ Statistics show tax totals ($50,058.52 outstanding)
+- ✅ Tax extraction jobs can be created (if full deployment)
+
+## ⚠️ Important Notes
+
+1. **First Deploy**: May take 5-10 minutes (installing dependencies)
+2. **Costs**: Railway offers $5 free credits monthly, then ~$20/month
+3. **Database**: Supabase remains external (free tier sufficient)
+4. **Extraction**: All features work including Selenium/Playwright with proper setup
+
+## 🚀 Next Steps After Deployment
+
+### 1. Deploy Dashboard (Separate Service)
+The Streamlit dashboard needs its own deployment:
+- **Option A**: Deploy to Streamlit Cloud (free)
+- **Option B**: Add as second Railway service
+- **Option C**: Use Render.com for dashboard
+
+### 2. Set Up Monitoring
+- Railway provides built-in metrics
+- Access via Railway dashboard
+- Set up alerts for failures
+
+### 3. Scale If Needed
+```bash
+# Scale up instances
+railway scale --replicas 2
+```
+
+### 4. Custom Domain (Optional)
+```bash
+railway domain
+```
 
 ## 📚 Resources
 
@@ -240,3 +289,10 @@ railway login && railway init && railway up
 ```
 
 The entire stack will be live in ~5 minutes! 🎉
+
+---
+
+**Status**: ✅ READY FOR DEPLOYMENT
+**Platform**: Railway (Recommended)
+**Deployment Time**: ~5 minutes
+**Monthly Cost**: ~$20 after free credits

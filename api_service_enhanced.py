@@ -36,7 +36,6 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 import uvicorn
 
 # Import existing modules
-sys.path.append('extracting-tests-818')
 from MASTER_TAX_EXTRACTOR import TaxExtractor
 from config import get_config, ConfigManager
 from error_handling import ErrorHandler, ExtractionError, ValidationError

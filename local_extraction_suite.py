@@ -16,9 +16,6 @@ import logging
 from dataclasses import dataclass, asdict
 import json
 
-# Add extracting-tests-818 to path
-sys.path.insert(0, 'extracting-tests-818')
-
 # Try importing MASTER_TAX_EXTRACTOR components
 try:
     from playwright.async_api import async_playwright, Page

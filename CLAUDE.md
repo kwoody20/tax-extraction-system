@@ -38,7 +38,7 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ### Core Extraction Engine
 - **cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
-- **extracting-tests-818/MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
+- **MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
 - **robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic
 - **selenium_tax_extractors.py**: Browser-based extractors for complex sites (local only)
 - **Supported Cloud Jurisdictions**: Montgomery, Fort Bend, Chambers, Galveston, Aldine ISD, Goose Creek ISD, Spring Creek, Barbers Hill ISD
@@ -130,7 +130,7 @@ streamlit run dashboard.py
 ### Running Extractors
 ```bash
 # Master extraction system (recommended)
-python extracting-tests-818/MASTER_TAX_EXTRACTOR.py OFFICIAL-proptax-assets.csv --concurrent
+python MASTER_TAX_EXTRACTOR.py csv/OFFICIAL-proptax-assets.csv --concurrent
 
 # Selenium-based extraction for Maricopa/Harris
 python selenium_tax_extractors.py

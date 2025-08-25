@@ -16,8 +16,7 @@ from typing import Dict, Any, Optional
 import tempfile
 import traceback
 
-# Add path for master extractor
-sys.path.append('extracting-tests-818')
+# Import master extractor
 from MASTER_TAX_EXTRACTOR import TaxExtractor
 
 # Configure Celery

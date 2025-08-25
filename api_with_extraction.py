@@ -15,9 +15,6 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 import logging
 
-# Add extracting-tests-818 to path for MASTER_TAX_EXTRACTOR
-sys.path.insert(0, 'extracting-tests-818')
-
 load_dotenv()
 
 # Configuration

@@ -19,7 +19,6 @@ import tempfile
 import traceback
 
 # Import the master extractor
-sys.path.append('extracting-tests-818')
 from MASTER_TAX_EXTRACTOR import TaxExtractor
 
 app = FastAPI(title="Tax Extractor API", version="1.0.0")
