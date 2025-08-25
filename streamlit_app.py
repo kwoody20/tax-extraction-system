@@ -111,6 +111,17 @@ def fetch_statistics():
         st.error(f"Error fetching statistics: {e}")
     return {}
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_entities():
+    """Fetch entities data from API with caching."""
+    try:
+        response = requests.get(f"{API_URL}/api/v1/entities", timeout=10)
+        if response.status_code == 200:
+            return response.json().get("entities", [])
+    except Exception as e:
+        st.error(f"Error fetching entities: {e}")
+    return []
+
 def check_api_health():
     """Check API health status."""
     try:
@@ -256,12 +267,13 @@ with st.sidebar:
         show_upcoming_30 = st.checkbox("Due in Next 30 Days", value=False)
 
 # Main content with enhanced tabs
-tab1, tab2, tab3 = st.tabs(["📊 Overview", "🏢 Properties", "📈 Analytics"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "📈 Analytics"])
 
 # Load data once for all tabs
 with st.spinner("Loading data..."):
     properties = fetch_properties()
     stats = fetch_statistics()
+    entities = fetch_entities()
 
 # Apply filters if data is available
 if properties:
@@ -508,6 +520,236 @@ with tab2:
         st.info("No properties found matching the current filters")
 
 with tab3:
+    st.header("👥 Entity Management")
+    
+    if entities:
+        entities_df = pd.DataFrame(entities)
+        
+        # Categorize entities
+        parent_entities = []
+        sub_entities = []
+        single_property_entities = []
+        
+        for entity in entities:
+            if entity.get('parent_entity_id'):
+                sub_entities.append(entity)
+            elif entity.get('property_count', 0) == 1:
+                single_property_entities.append(entity)
+            else:
+                parent_entities.append(entity)
+        
+        # Display entity statistics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Entities", len(entities))
+        
+        with col2:
+            st.metric("Parent Entities", len(parent_entities))
+        
+        with col3:
+            st.metric("Sub-Entities", len(sub_entities))
+        
+        with col4:
+            st.metric("Single-Property", len(single_property_entities))
+        
+        # Entity Type Distribution
+        st.subheader("🏢 Entity Type Distribution")
+        
+        entity_types = {
+            'Parent Entities': len(parent_entities),
+            'Sub-Entities': len(sub_entities),
+            'Single-Property Entities': len(single_property_entities)
+        }
+        
+        fig_entity_dist = px.pie(
+            values=list(entity_types.values()),
+            names=list(entity_types.keys()),
+            title="Entity Classification",
+            color_discrete_map={
+                'Parent Entities': '#2E86AB',
+                'Sub-Entities': '#A23B72',
+                'Single-Property Entities': '#F18F01'
+            }
+        )
+        st.plotly_chart(fig_entity_dist, use_container_width=True)
+        
+        # Entity Hierarchy Visualization
+        st.subheader("🌳 Entity Hierarchy")
+        
+        # Create tabs for different entity types
+        entity_tab1, entity_tab2, entity_tab3 = st.tabs(["Parent Entities", "Sub-Entities", "Single-Property"])
+        
+        with entity_tab1:
+            if parent_entities:
+                for entity in parent_entities:
+                    with st.expander(f"🏢 {entity.get('entity_name', 'Unknown')}"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write(f"**Entity ID:** {entity.get('entity_id', 'N/A')}")
+                            st.write(f"**Type:** {entity.get('entity_type', 'N/A')}")
+                            st.write(f"**Property Count:** {entity.get('property_count', 0)}")
+                        
+                        with col2:
+                            st.write(f"**Created:** {entity.get('created_at', 'N/A')}")
+                            if entity.get('notes'):
+                                st.write(f"**Notes:** {entity.get('notes')}")
+                        
+                        # Show sub-entities if any
+                        related_subs = [e for e in sub_entities if e.get('parent_entity_id') == entity.get('entity_id')]
+                        if related_subs:
+                            st.write("**Sub-Entities:**")
+                            for sub in related_subs:
+                                st.write(f"  • {sub.get('entity_name', 'Unknown')} ({sub.get('property_count', 0)} properties)")
+            else:
+                st.info("No parent entities found")
+        
+        with entity_tab2:
+            if sub_entities:
+                for entity in sub_entities:
+                    with st.expander(f"📁 {entity.get('entity_name', 'Unknown')}"):
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write(f"**Entity ID:** {entity.get('entity_id', 'N/A')}")
+                            st.write(f"**Type:** {entity.get('entity_type', 'N/A')}")
+                            st.write(f"**Property Count:** {entity.get('property_count', 0)}")
+                        
+                        with col2:
+                            # Find parent entity name
+                            parent_id = entity.get('parent_entity_id')
+                            parent_name = next((e.get('entity_name') for e in parent_entities if e.get('entity_id') == parent_id), 'Unknown')
+                            st.write(f"**Parent Entity:** {parent_name}")
+                            st.write(f"**Created:** {entity.get('created_at', 'N/A')}")
+                            if entity.get('notes'):
+                                st.write(f"**Notes:** {entity.get('notes')}")
+            else:
+                st.info("No sub-entities found")
+        
+        with entity_tab3:
+            if single_property_entities:
+                # Display as a table for better overview
+                single_df = pd.DataFrame(single_property_entities)
+                display_cols = ['entity_name', 'entity_type', 'property_count', 'created_at']
+                available_cols = [col for col in display_cols if col in single_df.columns]
+                
+                if available_cols:
+                    st.dataframe(
+                        single_df[available_cols],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    for entity in single_property_entities:
+                        st.write(f"• {entity.get('entity_name', 'Unknown')}")
+            else:
+                st.info("No single-property entities found")
+        
+        # Entity Relationship Network (if there are relationships)
+        if parent_entities and sub_entities:
+            st.subheader("🔗 Entity Relationships Network")
+            
+            # Create a simple network visualization
+            import plotly.graph_objects as go
+            
+            # Build edge and node lists
+            edge_x = []
+            edge_y = []
+            node_x = []
+            node_y = []
+            node_text = []
+            node_color = []
+            
+            # Position parent entities
+            for i, entity in enumerate(parent_entities):
+                x = i * 2
+                y = 1
+                node_x.append(x)
+                node_y.append(y)
+                node_text.append(entity.get('entity_name', 'Unknown'))
+                node_color.append('#2E86AB')  # Blue for parent
+                
+                # Position and connect sub-entities
+                related_subs = [e for e in sub_entities if e.get('parent_entity_id') == entity.get('entity_id')]
+                for j, sub in enumerate(related_subs):
+                    sub_x = x + (j - len(related_subs)/2) * 0.5
+                    sub_y = 0
+                    node_x.append(sub_x)
+                    node_y.append(sub_y)
+                    node_text.append(sub.get('entity_name', 'Unknown'))
+                    node_color.append('#A23B72')  # Pink for sub-entity
+                    
+                    # Add edge
+                    edge_x.extend([x, sub_x, None])
+                    edge_y.extend([y, sub_y, None])
+            
+            # Create the network graph
+            fig_network = go.Figure()
+            
+            # Add edges
+            fig_network.add_trace(go.Scatter(
+                x=edge_x, y=edge_y,
+                line=dict(width=0.5, color='#888'),
+                hoverinfo='none',
+                mode='lines'
+            ))
+            
+            # Add nodes
+            fig_network.add_trace(go.Scatter(
+                x=node_x, y=node_y,
+                mode='markers+text',
+                text=node_text,
+                textposition="top center",
+                marker=dict(
+                    size=15,
+                    color=node_color,
+                    line=dict(width=2, color='white')
+                ),
+                hoverinfo='text'
+            ))
+            
+            fig_network.update_layout(
+                title="Entity Hierarchy Network",
+                showlegend=False,
+                hovermode='closest',
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                height=400
+            )
+            
+            st.plotly_chart(fig_network, use_container_width=True)
+        
+        # Export functionality
+        st.subheader("📤 Export Entity Data")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # CSV export
+            csv = entities_df.to_csv(index=False)
+            st.download_button(
+                label="📄 Download CSV",
+                data=csv,
+                file_name=f"entities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # JSON export
+            json_data = entities_df.to_json(orient='records', date_format='iso')
+            st.download_button(
+                label="📋 Download JSON",
+                data=json_data,
+                file_name=f"entities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+    else:
+        st.info("No entities found in the system")
+
+with tab4:
     st.header("📈 Advanced Analytics")
     
     if not df.empty:
