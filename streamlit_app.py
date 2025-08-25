@@ -30,12 +30,18 @@ st.set_page_config(
 # Custom CSS for better styling - Hide hamburger menu
 st.markdown("""
 <style>
-    /* Hide the hamburger menu */
+    /* Hide Streamlit branding and menu items */
     #MainMenu {visibility: hidden;}
-    /* Hide the footer */
+    .stDeployButton {display: none;}
     footer {visibility: hidden;}
-    /* Hide the header decoration */
-    header {visibility: hidden;}
+    /* Hide the viewer badge */
+    ._profileContainer {display: none;}
+    /* Hide the header but keep the space */
+    header[data-testid="stHeader"] {height: 0px;}
+    /* Hide the toolbar */
+    .stToolbar {display: none;}
+    /* Hide made with Streamlit footer */
+    .viewerBadge_container__1QSob {display: none;}
     .stMetric {
         background-color: #f0f2f6;
         padding: 15px;
