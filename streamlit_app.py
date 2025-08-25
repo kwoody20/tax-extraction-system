@@ -1,16 +1,78 @@
 """
 Streamlit Dashboard for Tax Extraction System.
+Enhanced version with improved UI/UX, filtering, and visualizations.
 """
 
 import streamlit as st
 import pandas as pd
-import requests
-import os
-from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import requests
+import os
+from datetime import datetime, timedelta
+import json
+from io import BytesIO
+import time
 
-st.set_page_config(page_title="Tax Dashboard", page_icon="🏢", layout="wide")
+st.set_page_config(
+    page_title="Tax Dashboard",
+    page_icon="🏢",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .stMetric {
+        background-color: #f0f2f6;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .paid-by-landlord {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .paid-by-tenant {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .paid-by-reimburse {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .due-soon {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    .due-later {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    div[data-testid="stSidebarNav"] {
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        padding: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Get API URL from secrets or environment
 try:
@@ -18,798 +80,621 @@ try:
 except:
     API_URL = "https://tax-extraction-system-production.up.railway.app"
 
-st.title("🏢 Property Tax Dashboard")
-st.write("Real-time monitoring of property tax data")
+# Initialize session state
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = datetime.now()
+if 'properties_data' not in st.session_state:
+    st.session_state.properties_data = None
+if 'stats_data' not in st.session_state:
+    st.session_state.stats_data = None
+
+# Cache data fetching functions
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_properties():
+    """Fetch properties data from API with caching."""
+    try:
+        response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
+        if response.status_code == 200:
+            return response.json().get("properties", [])
+    except Exception as e:
+        st.error(f"Error fetching properties: {e}")
+    return []
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_statistics():
+    """Fetch statistics from API with caching."""
+    try:
+        response = requests.get(f"{API_URL}/api/v1/statistics", timeout=10)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Error fetching statistics: {e}")
+    return {}
+
+def check_api_health():
+    """Check API health status."""
+    try:
+        response = requests.get(f"{API_URL}/health", timeout=5)
+        data = response.json()
+        return response.status_code, data
+    except Exception:
+        return None, None
+
+def format_paid_by(value):
+    """Format paid_by field with color coding."""
+    if pd.isna(value) or value == "":
+        return "-"
+    
+    value_lower = str(value).lower()
+    if "landlord" in value_lower:
+        return f'<span class="paid-by-landlord">{value}</span>'
+    elif "reimburse" in value_lower:
+        return f'<span class="paid-by-reimburse">{value}</span>'
+    elif "tenant" in value_lower:
+        return f'<span class="paid-by-tenant">{value}</span>'
+    else:
+        return value
+
+def format_due_date(date_str):
+    """Format due date with color coding based on urgency."""
+    if pd.isna(date_str) or date_str == "":
+        return "-"
+    
+    try:
+        due_date = pd.to_datetime(date_str)
+        formatted_date = due_date.strftime('%m/%d/%Y')
+        days_until = (due_date - datetime.now()).days
+        
+        if days_until < 0:
+            return f'<span class="due-soon">⚠️ {formatted_date} (OVERDUE)</span>'
+        elif days_until <= 30:
+            return f'<span class="due-soon">⏰ {formatted_date} ({days_until}d)</span>'
+        else:
+            return f'<span class="due-later">✓ {formatted_date}</span>'
+    except:
+        return date_str
+
+# Header with title and refresh controls
+col1, col2, col3 = st.columns([3, 1, 1])
+with col1:
+    st.title("🏢 Property Tax Dashboard")
+    st.caption("Real-time monitoring of property tax data with enhanced analytics")
+
+with col2:
+    if st.button("🔄 Refresh Data", use_container_width=True, type="primary"):
+        st.cache_data.clear()
+        st.session_state.last_refresh = datetime.now()
+        st.rerun()
+
+with col3:
+    refresh_time = st.session_state.last_refresh.strftime("%H:%M:%S")
+    st.metric("Last Refresh", refresh_time, label_visibility="visible")
 
 # Sidebar
 with st.sidebar:
-    st.header("🔧 Controls")
-    if st.button("🔄 Refresh", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+    st.header("🔧 System Status")
     
-    # API Status
-    st.subheader("🌐 API Status")
-    with st.spinner("Checking API..."):
-        try:
-            response = requests.get(f"{API_URL}/health", timeout=5)
-            data = response.json()
-            if response.status_code == 200 and data.get("status") == "healthy":
-                st.success("✅ API & Database Online")
-            elif response.status_code == 200:
-                st.warning(f"⚠️ API Online, Database Issue")
-                st.caption("Railway needs Supabase credentials")
-            else:
-                st.error(f"❌ API Offline ({response.status_code})")
-        except Exception as e:
-            st.error(f"❌ Cannot reach API")
+    # API Status with better visual feedback
+    with st.container():
+        status_code, health_data = check_api_health()
+        
+        if status_code == 200 and health_data and health_data.get("status") == "healthy":
+            st.success("✅ **API & Database Online**")
+            with st.expander("Connection Details", expanded=False):
+                st.json({
+                    "API": API_URL,
+                    "Status": "Healthy",
+                    "Database": "Connected"
+                })
+        elif status_code == 200:
+            st.warning("⚠️ **API Online, Database Issue**")
+            st.caption("Check Railway Supabase credentials")
+        else:
+            st.error("❌ **API Offline**")
             st.caption(f"URL: {API_URL}")
+    
+    st.divider()
+    
+    # Filters Section
+    st.header("🔍 Filters")
+    
+    # Load properties for filter options
+    properties = fetch_properties()
+    
+    if properties:
+        df_props = pd.DataFrame(properties)
+        
+        # Paid By Filter
+        if 'paid_by' in df_props.columns:
+            paid_by_options = ["All"] + sorted(df_props['paid_by'].dropna().unique().tolist())
+            selected_paid_by = st.selectbox("💰 Paid By", paid_by_options)
+        else:
+            selected_paid_by = "All"
+        
+        # State Filter
+        if 'state' in df_props.columns:
+            state_options = ["All"] + sorted(df_props['state'].dropna().unique().tolist())
+            selected_state = st.selectbox("📍 State", state_options)
+        else:
+            selected_state = "All"
+        
+        # Jurisdiction Filter
+        if 'jurisdiction' in df_props.columns:
+            jurisdiction_options = ["All"] + sorted(df_props['jurisdiction'].dropna().unique().tolist())
+            selected_jurisdiction = st.selectbox("🏛️ Jurisdiction", jurisdiction_options, key="jurisdiction_filter")
+        else:
+            selected_jurisdiction = "All"
+        
+        # Due Date Range Filter
+        st.subheader("📅 Due Date Range")
+        
+        if 'tax_due_date' in df_props.columns:
+            # Convert to datetime for filtering
+            df_props['tax_due_date_dt'] = pd.to_datetime(df_props['tax_due_date'], errors='coerce')
+            
+            # Find min and max dates
+            valid_dates = df_props['tax_due_date_dt'].dropna()
+            if not valid_dates.empty:
+                min_date = valid_dates.min().date()
+                max_date = valid_dates.max().date()
+                
+                date_range = st.date_input(
+                    "Select range",
+                    value=(min_date, max_date),
+                    min_value=min_date,
+                    max_value=max_date,
+                    format="MM/DD/YYYY"
+                )
+            else:
+                date_range = None
+        else:
+            date_range = None
+        
+        # Quick Filters
+        st.subheader("⚡ Quick Filters")
+        show_overdue = st.checkbox("Show Overdue Only", value=False)
+        show_upcoming_30 = st.checkbox("Due in Next 30 Days", value=False)
 
-# Main content
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "🗺️ Geographic Distribution", "🔄 Tax Extraction"])
+# Main content with enhanced tabs
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🏢 Properties", "📅 Calendar View", "📈 Analytics"])
+
+# Load data once for all tabs
+with st.spinner("Loading data..."):
+    properties = fetch_properties()
+    stats = fetch_statistics()
+
+# Apply filters if data is available
+if properties:
+    df = pd.DataFrame(properties)
+    
+    # Add datetime columns for filtering
+    if 'tax_due_date' in df.columns:
+        df['tax_due_date_dt'] = pd.to_datetime(df['tax_due_date'], errors='coerce')
+    
+    # Apply filters from sidebar
+    if 'selected_paid_by' in locals() and selected_paid_by != "All":
+        df = df[df['paid_by'] == selected_paid_by]
+    
+    if 'selected_state' in locals() and selected_state != "All":
+        df = df[df['state'] == selected_state]
+    
+    if 'selected_jurisdiction' in locals() and selected_jurisdiction != "All":
+        df = df[df['jurisdiction'] == selected_jurisdiction]
+    
+    if 'date_range' in locals() and date_range and len(date_range) == 2 and 'tax_due_date_dt' in df.columns:
+        start_date, end_date = date_range
+        df = df[(df['tax_due_date_dt'].dt.date >= start_date) & 
+                (df['tax_due_date_dt'].dt.date <= end_date)]
+    
+    if 'show_overdue' in locals() and show_overdue and 'tax_due_date_dt' in df.columns:
+        df = df[df['tax_due_date_dt'] < datetime.now()]
+    
+    if 'show_upcoming_30' in locals() and show_upcoming_30 and 'tax_due_date_dt' in df.columns:
+        thirty_days = datetime.now() + timedelta(days=30)
+        df = df[(df['tax_due_date_dt'] >= datetime.now()) & 
+                (df['tax_due_date_dt'] <= thirty_days)]
+else:
+    df = pd.DataFrame()
 
 with tab1:
-    st.header("System Overview")
+    st.header("📊 System Overview")
     
-    # Fetch statistics
-    try:
-        stats_response = requests.get(f"{API_URL}/api/v1/statistics", timeout=10)
-        if stats_response.status_code == 200:
-            stats = stats_response.json()
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Properties", stats.get("total_properties", 0))
-            
-            with col2:
-                st.metric("Total Entities", stats.get("total_entities", 0))
-            
-            with col3:
-                outstanding = stats.get("total_outstanding_tax", 0)
-                st.metric("Outstanding Tax", f"${outstanding:,.2f}")
-            
-            with col4:
-                success_rate = stats.get("extraction_success_rate", 0)
-                st.metric("Success Rate", f"{success_rate:.1f}%")
-        else:
-            st.warning("Unable to fetch statistics")
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-with tab2:
-    st.header("Properties")
+    # Enhanced metrics with better layout
+    if stats:
+        # Primary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_props = len(df) if not df.empty else 0
+            st.metric(
+                "Total Properties",
+                total_props,
+                f"of {stats.get('total_properties', 0)} total"
+            )
+        
+        with col2:
+            st.metric("Total Entities", stats.get("total_entities", 0))
+        
+        with col3:
+            outstanding = stats.get("total_outstanding_tax", 0)
+            st.metric("Outstanding Tax", f"${outstanding:,.2f}")
+        
+        with col4:
+            success_rate = stats.get("extraction_success_rate", 0)
+            st.metric("Success Rate", f"{success_rate:.1f}%")
     
-    # Fetch properties
-    try:
-        props_response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
-        if props_response.status_code == 200:
-            properties = props_response.json().get("properties", [])
+    # Summary metrics for new fields
+    if not df.empty:
+        st.divider()
+        st.subheader("📊 Payment Responsibility Summary")
+        
+        if 'paid_by' in df.columns:
+            # Count by paid_by category
+            paid_by_counts = df['paid_by'].value_counts()
             
-            if properties:
-                df = pd.DataFrame(properties)
+            # Create columns for paid_by metrics
+            cols = st.columns(len(paid_by_counts))
+            
+            for idx, (category, count) in enumerate(paid_by_counts.items()):
+                with cols[idx]:
+                    # Color code the metric based on category
+                    if pd.notna(category):
+                        percentage = (count / len(df)) * 100
+                        st.metric(
+                            category,
+                            count,
+                            f"{percentage:.1f}%",
+                            delta_color="off"
+                        )
+        
+        st.divider()
+        st.subheader("📅 Due Date Summary")
+        
+        if 'tax_due_date_dt' in df.columns:
+            # Calculate due date statistics
+            valid_dates = df[df['tax_due_date_dt'].notna()]
+            
+            if not valid_dates.empty:
+                now = datetime.now()
+                overdue = valid_dates[valid_dates['tax_due_date_dt'] < now]
+                due_30 = valid_dates[(valid_dates['tax_due_date_dt'] >= now) & 
+                                    (valid_dates['tax_due_date_dt'] <= now + timedelta(days=30))]
+                due_60 = valid_dates[(valid_dates['tax_due_date_dt'] > now + timedelta(days=30)) & 
+                                    (valid_dates['tax_due_date_dt'] <= now + timedelta(days=60))]
+                due_later = valid_dates[valid_dates['tax_due_date_dt'] > now + timedelta(days=60)]
                 
-                # Format date column if present
-                if 'tax_due_date' in df.columns:
-                    df['tax_due_date'] = pd.to_datetime(df['tax_due_date'], errors='coerce').dt.strftime('%m/%d/%Y')
-                    df['tax_due_date'] = df['tax_due_date'].fillna('')
-                
-                # Format amount_due column if present
-                if 'amount_due' in df.columns:
-                    df['amount_due_formatted'] = df['amount_due'].apply(lambda x: f"${x:,.2f}" if pd.notna(x) and x > 0 else "")
-                
-                # Search and Filter Section
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    # Text search across multiple fields
-                    search_term = st.text_input("🔍 Search", placeholder="Search properties...")
+                    st.metric("⚠️ Overdue", len(overdue), delta_color="inverse")
                 
                 with col2:
-                    # Entity filter
-                    entities = ["All"] + sorted(df['parent_entity_name'].dropna().unique().tolist()) if 'parent_entity_name' in df.columns else ["All"]
-                    selected_entity = st.selectbox("🏢 Entity", entities)
+                    st.metric("🔴 Due in 30 days", len(due_30))
                 
                 with col3:
-                    # State filter
-                    states = ["All"] + sorted(df['state'].dropna().unique().tolist()) if 'state' in df.columns else ["All"]
-                    selected_state = st.selectbox("📍 State", states)
+                    st.metric("🟡 Due in 31-60 days", len(due_60))
                 
                 with col4:
-                    # Jurisdiction filter
-                    jurisdictions = ["All"] + sorted(df['jurisdiction'].dropna().unique().tolist()) if 'jurisdiction' in df.columns else ["All"]
-                    selected_jurisdiction = st.selectbox("🏛️ Jurisdiction", jurisdictions)
+                    st.metric("🟢 Due after 60 days", len(due_later))
                 
-                # Apply filters
-                filtered_df = df.copy()
-                
-                # Apply text search
-                if search_term:
-                    search_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'parent_entity_name']
-                    existing_cols = [col for col in search_cols if col in filtered_df.columns]
+                # Visualization: Pie chart for paid_by distribution
+                if 'paid_by' in df.columns:
+                    st.divider()
+                    col1, col2 = st.columns(2)
                     
-                    mask = filtered_df[existing_cols].apply(
-                        lambda x: x.astype(str).str.contains(search_term, case=False, na=False)
-                    ).any(axis=1)
-                    filtered_df = filtered_df[mask]
-                
-                # Apply entity filter
-                if selected_entity != "All" and 'parent_entity_name' in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df['parent_entity_name'] == selected_entity]
-                
-                # Apply state filter
-                if selected_state != "All" and 'state' in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df['state'] == selected_state]
-                
-                # Apply jurisdiction filter
-                if selected_jurisdiction != "All" and 'jurisdiction' in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df['jurisdiction'] == selected_jurisdiction]
-                
-                # Display metrics for filtered data
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Properties Found", len(filtered_df))
-                with col2:
-                    unique_entities = filtered_df['parent_entity_name'].nunique() if 'parent_entity_name' in filtered_df.columns else 0
-                    st.metric("Entities", unique_entities)
-                with col3:
-                    unique_states = filtered_df['state'].nunique() if 'state' in filtered_df.columns else 0
-                    st.metric("States", unique_states)
-                
-                # Display filtered data - include new fields
-                display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due_formatted']
-                # Use amount_due_formatted if it exists, otherwise amount_due
-                if 'amount_due_formatted' in filtered_df.columns:
-                    display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due_formatted']
-                else:
-                    display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due']
-                available_cols = [col for col in display_cols if col in filtered_df.columns]
-                
-                if available_cols and len(filtered_df) > 0:
-                    st.dataframe(
-                        filtered_df[available_cols], 
-                        use_container_width=True,
-                        height=400
-                    )
-                    
-                    # Download filtered results
-                    csv = filtered_df.to_csv(index=False)
-                    st.download_button(
-                        label=f"📥 Download Filtered Results ({len(filtered_df)} properties)",
-                        data=csv,
-                        file_name=f"filtered_properties_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                else:
-                    st.info("No properties match your filters")
-            else:
-                st.info("No properties found")
-        else:
-            st.warning("Unable to fetch properties")
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-with tab3:
-    st.header("Entity View")
-    st.caption("Properties grouped by entity with aggregated tax information")
-    
-    # Fetch data
-    try:
-        # Fetch properties and extractions
-        props_response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
-        extractions_response = requests.get(f"{API_URL}/api/v1/extractions", timeout=10)
-        
-        if props_response.status_code == 200 and extractions_response.status_code == 200:
-            properties = props_response.json().get("properties", [])
-            extractions = extractions_response.json().get("extractions", [])
-            
-            if properties:
-                # Create DataFrames
-                df_props = pd.DataFrame(properties)
-                df_extracts = pd.DataFrame(extractions) if extractions else pd.DataFrame()
-                
-                # Get latest extraction for each property if we have extractions
-                if not df_extracts.empty and 'property_id' in df_extracts.columns:
-                    # Sort by extraction date and get the latest for each property
-                    if 'extraction_date' in df_extracts.columns:
-                        df_extracts['extraction_date'] = pd.to_datetime(df_extracts['extraction_date'])
-                        latest_extracts = df_extracts.sort_values('extraction_date').groupby('property_id').last()
-                    else:
-                        latest_extracts = df_extracts.groupby('property_id').last()
-                    
-                    # Merge with properties
-                    df_merged = df_props.merge(
-                        latest_extracts[['tax_amount', 'previous_year_tax'] if 'tax_amount' in latest_extracts.columns else []],
-                        left_on='id',
-                        right_index=True,
-                        how='left'
-                    )
-                else:
-                    df_merged = df_props
-                    # Use amount_due and previous_year_taxes from properties if available
-                    if 'amount_due' in df_merged.columns:
-                        df_merged['tax_amount'] = df_merged['amount_due']
-                    else:
-                        df_merged['tax_amount'] = 0
-                    if 'previous_year_taxes' in df_merged.columns:
-                        df_merged['previous_year_tax'] = df_merged['previous_year_taxes']
-                    else:
-                        df_merged['previous_year_tax'] = 0
-                
-                # Fill NaN values with 0 for tax amounts
-                if 'tax_amount' in df_merged.columns:
-                    df_merged['tax_amount'] = df_merged['tax_amount'].fillna(0)
-                if 'previous_year_tax' in df_merged.columns:
-                    df_merged['previous_year_tax'] = df_merged['previous_year_tax'].fillna(0)
-                
-                # Group by entity
-                if 'parent_entity_name' in df_merged.columns:
-                    entity_groups = df_merged.groupby('parent_entity_name').agg({
-                        'property_name': 'count',
-                        'tax_amount': 'sum',
-                        'previous_year_tax': 'sum',
-                        'state': lambda x: ', '.join(sorted(x.dropna().unique()))
-                    }).round(2)
-                    
-                    entity_groups.columns = ['Properties', 'Current Tax', 'Previous Tax', 'States']
-                    entity_groups['Tax Change'] = entity_groups['Current Tax'] - entity_groups['Previous Tax']
-                    entity_groups['Change %'] = ((entity_groups['Tax Change'] / entity_groups['Previous Tax'] * 100)
-                                                .replace([float('inf'), -float('inf')], 0)
-                                                .fillna(0)
-                                                .round(1))
-                    
-                    # Sort by current tax amount
-                    entity_groups = entity_groups.sort_values('Current Tax', ascending=False)
-                    
-                    # Display summary metrics
-                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("Total Entities", len(entity_groups))
-                    with col2:
-                        st.metric("Total Current Tax", f"${entity_groups['Current Tax'].sum():,.2f}")
-                    with col3:
-                        st.metric("Total Previous Tax", f"${entity_groups['Previous Tax'].sum():,.2f}")
-                    with col4:
-                        total_change = entity_groups['Tax Change'].sum()
-                        st.metric("Total Change", f"${total_change:,.2f}", 
-                                delta=f"{total_change:+,.2f}")
-                    
-                    # Entity selector
-                    selected_entity_detail = st.selectbox(
-                        "Select an entity to view details:",
-                        ["Overview"] + entity_groups.index.tolist()
-                    )
-                    
-                    if selected_entity_detail == "Overview":
-                        # Display entity summary table
-                        st.subheader("All Entities Summary")
-                        
-                        # Format the dataframe for display
-                        display_df = entity_groups.copy()
-                        display_df['Current Tax'] = display_df['Current Tax'].apply(lambda x: f"${x:,.2f}")
-                        display_df['Previous Tax'] = display_df['Previous Tax'].apply(lambda x: f"${x:,.2f}")
-                        display_df['Tax Change'] = display_df['Tax Change'].apply(lambda x: f"${x:+,.2f}")
-                        display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.1f}%")
-                        
-                        st.dataframe(display_df, use_container_width=True, height=400)
-                        
-                        # Download button for entity summary
-                        csv = entity_groups.to_csv()
-                        st.download_button(
-                            label="📥 Download Entity Summary",
-                            data=csv,
-                            file_name=f"entity_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
-                    else:
-                        # Display details for selected entity
-                        st.subheader(f"Entity Details: {selected_entity_detail}")
-                        
-                        # Get properties for this entity
-                        entity_properties = df_merged[df_merged['parent_entity_name'] == selected_entity_detail]
-                        
-                        # Entity metrics
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Properties", len(entity_properties))
-                        with col2:
-                            current_tax = entity_properties['tax_amount'].sum()
-                            st.metric("Current Tax", f"${current_tax:,.2f}")
-                        with col3:
-                            prev_tax = entity_properties['previous_year_tax'].sum()
-                            st.metric("Previous Tax", f"${prev_tax:,.2f}")
-                        with col4:
-                            change = current_tax - prev_tax
-                            st.metric("Change", f"${change:,.2f}", delta=f"{change:+,.2f}")
-                        
-                        # Property details table
-                        st.subheader("Properties")
-                        display_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'tax_amount', 'previous_year_tax']
-                        available_cols = [col for col in display_cols if col in entity_properties.columns]
-                        
-                        if available_cols:
-                            detail_df = entity_properties[available_cols].copy()
-                            if 'tax_amount' in detail_df.columns:
-                                detail_df['tax_amount'] = detail_df['tax_amount'].apply(lambda x: f"${x:,.2f}" if x > 0 else "-")
-                            if 'previous_year_tax' in detail_df.columns:
-                                detail_df['previous_year_tax'] = detail_df['previous_year_tax'].apply(lambda x: f"${x:,.2f}" if x > 0 else "-")
-                            
-                            detail_df.columns = [col.replace('_', ' ').title() for col in detail_df.columns]
-                            st.dataframe(detail_df, use_container_width=True, height=300)
-                            
-                            # Download entity properties
-                            csv = entity_properties.to_csv(index=False)
-                            st.download_button(
-                                label=f"📥 Download {selected_entity_detail} Properties",
-                                data=csv,
-                                file_name=f"{selected_entity_detail.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                mime="text/csv"
-                            )
-                else:
-                    st.info("No entity information available")
-            else:
-                st.info("No properties found")
-        else:
-            st.warning("Unable to fetch data")
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-with tab4:
-    st.header("🗺️ Geographic Distribution")
-    st.caption("Property tax distribution across states and counties")
-    
-    # Fetch data for geographic analysis
-    try:
-        props_response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
-        extractions_response = requests.get(f"{API_URL}/api/v1/extractions", timeout=10)
-        
-        if props_response.status_code == 200:
-            properties = props_response.json().get("properties", [])
-            extractions = extractions_response.json().get("extractions", []) if extractions_response.status_code == 200 else []
-            
-            if properties:
-                df_props = pd.DataFrame(properties)
-                df_extracts = pd.DataFrame(extractions) if extractions else pd.DataFrame()
-                
-                # Merge with extraction data if available
-                if not df_extracts.empty and 'property_id' in df_extracts.columns:
-                    if 'extraction_date' in df_extracts.columns:
-                        df_extracts['extraction_date'] = pd.to_datetime(df_extracts['extraction_date'])
-                        latest_extracts = df_extracts.sort_values('extraction_date').groupby('property_id').last()
-                    else:
-                        latest_extracts = df_extracts.groupby('property_id').last()
-                    
-                    df_merged = df_props.merge(
-                        latest_extracts[['tax_amount'] if 'tax_amount' in latest_extracts.columns else []],
-                        left_on='id',
-                        right_index=True,
-                        how='left'
-                    )
-                else:
-                    df_merged = df_props
-                    if 'amount_due' in df_merged.columns:
-                        df_merged['tax_amount'] = df_merged['amount_due']
-                    else:
-                        df_merged['tax_amount'] = 0
-                
-                # Fill NaN values
-                df_merged['tax_amount'] = df_merged['tax_amount'].fillna(0)
-                
-                # Create two columns for layout
-                col1, col2 = st.columns(2)
-                
-                # State-level analysis
-                with col1:
-                    st.subheader("📍 Distribution by State")
-                    
-                    if 'state' in df_merged.columns:
-                        state_stats = df_merged.groupby('state').agg({
-                            'property_name': 'count',
-                            'tax_amount': 'sum'
-                        }).reset_index()
-                        state_stats.columns = ['State', 'Property Count', 'Total Tax']
-                        state_stats = state_stats.sort_values('Total Tax', ascending=False)
-                        
-                        # Create pie chart for property distribution
                         fig_pie = px.pie(
-                            state_stats, 
-                            values='Property Count', 
-                            names='State',
-                            title='Properties by State',
-                            hole=0.4,
-                            color_discrete_sequence=px.colors.qualitative.Set3
+                            values=paid_by_counts.values,
+                            names=paid_by_counts.index,
+                            title="Payment Responsibility Distribution",
+                            color_discrete_map={
+                                'Landlord': '#28a745',
+                                'Tenant': '#17a2b8',
+                                'Tenant to Reimburse': '#ffc107'
+                            }
                         )
                         fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-                        fig_pie.update_layout(height=400)
                         st.plotly_chart(fig_pie, use_container_width=True)
-                        
-                        # Bar chart for tax amounts
-                        fig_bar = px.bar(
-                            state_stats,
-                            x='State',
-                            y='Total Tax',
-                            title='Total Tax Amount by State',
-                            text='Total Tax',
-                            color='Total Tax',
-                            color_continuous_scale='Blues'
-                        )
-                        fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-                        fig_bar.update_layout(height=400, showlegend=False)
-                        st.plotly_chart(fig_bar, use_container_width=True)
-                
-                # County/Jurisdiction analysis
-                with col2:
-                    st.subheader("🏛️ Distribution by County/Jurisdiction")
                     
-                    if 'jurisdiction' in df_merged.columns:
-                        # Group by jurisdiction
-                        county_stats = df_merged.groupby(['jurisdiction', 'state']).agg({
-                            'property_name': 'count',
-                            'tax_amount': 'sum'
-                        }).reset_index()
-                        county_stats.columns = ['Jurisdiction', 'State', 'Property Count', 'Total Tax']
-                        county_stats['Location'] = county_stats['Jurisdiction'] + ', ' + county_stats['State']
-                        county_stats = county_stats.sort_values('Total Tax', ascending=False)
-                        
-                        # Top 10 jurisdictions by property count
-                        top_jurisdictions = county_stats.nlargest(10, 'Property Count')
-                        
-                        fig_top = px.bar(
-                            top_jurisdictions,
-                            y='Location',
-                            x='Property Count',
-                            title='Top 10 Jurisdictions by Property Count',
-                            orientation='h',
-                            text='Property Count',
-                            color='Property Count',
-                            color_continuous_scale='Greens'
-                        )
-                        fig_top.update_traces(texttemplate='%{text}', textposition='outside')
-                        fig_top.update_layout(height=400, showlegend=False)
-                        st.plotly_chart(fig_top, use_container_width=True)
-                        
-                        # Top 10 jurisdictions by tax amount
-                        top_tax_jurisdictions = county_stats.nlargest(10, 'Total Tax')
-                        
-                        fig_tax = px.bar(
-                            top_tax_jurisdictions,
-                            y='Location',
-                            x='Total Tax',
-                            title='Top 10 Jurisdictions by Tax Amount',
-                            orientation='h',
-                            text='Total Tax',
-                            color='Total Tax',
-                            color_continuous_scale='Reds'
-                        )
-                        fig_tax.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-                        fig_tax.update_layout(height=400, showlegend=False)
-                        st.plotly_chart(fig_tax, use_container_width=True)
-                
-                # Detailed geographic breakdown table
-                st.subheader("📊 Detailed Geographic Breakdown")
-                
-                # Create summary by state and jurisdiction
-                if 'state' in df_merged.columns and 'jurisdiction' in df_merged.columns:
-                    geographic_summary = df_merged.groupby(['state', 'jurisdiction']).agg({
-                        'property_name': 'count',
-                        'tax_amount': 'sum',
-                        'parent_entity_name': lambda x: len(x.dropna().unique()) if 'parent_entity_name' in df_merged.columns else 0
-                    }).reset_index()
-                    
-                    geographic_summary.columns = ['State', 'Jurisdiction', 'Properties', 'Total Tax', 'Entities']
-                    geographic_summary = geographic_summary.sort_values(['State', 'Total Tax'], ascending=[True, False])
-                    
-                    # Add state totals
-                    state_totals = geographic_summary.groupby('State').agg({
-                        'Properties': 'sum',
-                        'Total Tax': 'sum',
-                        'Entities': 'sum'
-                    }).reset_index()
-                    
-                    # Display metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Total States", len(state_totals))
                     with col2:
-                        st.metric("Total Jurisdictions", len(geographic_summary))
-                    with col3:
-                        st.metric("Avg Properties per State", f"{state_totals['Properties'].mean():.1f}")
-                    with col4:
-                        st.metric("Avg Tax per Property", f"${(geographic_summary['Total Tax'].sum() / geographic_summary['Properties'].sum()):,.2f}")
-                    
-                    # Interactive treemap
-                    if len(geographic_summary) > 0:
-                        st.subheader("🗺️ Interactive Tax Distribution Map")
+                        # Timeline chart for due dates
+                        timeline_data = valid_dates.groupby(
+                            valid_dates['tax_due_date_dt'].dt.to_period('M')
+                        ).size().reset_index()
+                        timeline_data.columns = ['Month', 'Count']
+                        timeline_data['Month'] = timeline_data['Month'].astype(str)
                         
-                        # Prepare data for treemap
-                        treemap_data = geographic_summary.copy()
-                        treemap_data['Tax_Display'] = treemap_data['Total Tax'].apply(lambda x: f"${x:,.0f}")
-                        treemap_data['hover_text'] = (
-                            treemap_data['Jurisdiction'] + '<br>' +
-                            'Properties: ' + treemap_data['Properties'].astype(str) + '<br>' +
-                            'Total Tax: ' + treemap_data['Tax_Display'] + '<br>' +
-                            'Entities: ' + treemap_data['Entities'].astype(str)
+                        fig_timeline = px.bar(
+                            timeline_data,
+                            x='Month',
+                            y='Count',
+                            title="Tax Due Dates by Month",
+                            color_discrete_sequence=['#1f77b4']
                         )
-                        
-                        fig_treemap = px.treemap(
-                            treemap_data,
-                            path=['State', 'Jurisdiction'],
-                            values='Total Tax',
-                            title='Property Tax Distribution Hierarchy',
-                            color='Total Tax',
-                            color_continuous_scale='RdYlBu_r',
-                            hover_data={'hover_text': True, 'Total Tax': False}
-                        )
-                        fig_treemap.update_traces(
-                            textinfo="label+value",
-                            hovertemplate='%{customdata[0]}<extra></extra>'
-                        )
-                        fig_treemap.update_layout(height=600)
-                        st.plotly_chart(fig_treemap, use_container_width=True)
-                    
-                    # Display detailed table
-                    st.subheader("📋 Geographic Summary Table")
-                    
-                    # Format for display
-                    display_geo = geographic_summary.copy()
-                    display_geo['Avg Tax per Property'] = geographic_summary.apply(
-                        lambda row: f"${row['Total Tax'] / row['Properties']:,.2f}" 
-                        if row['Properties'] > 0 else "$0.00", axis=1
-                    )
-                    display_geo['Total Tax'] = display_geo['Total Tax'].apply(lambda x: f"${x:,.2f}")
-                    
-                    st.dataframe(display_geo, use_container_width=True, height=400)
-                    
-                    # Download button
-                    csv = geographic_summary.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Download Geographic Breakdown",
-                        data=csv,
-                        file_name=f"geographic_breakdown_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                    
-                    # State comparison chart
-                    st.subheader("📈 State Comparison")
-                    
-                    # Create comparison metrics
-                    state_comparison = state_totals.copy()
-                    state_comparison['Avg Tax per Property'] = state_comparison['Total Tax'] / state_comparison['Properties']
-                    state_comparison = state_comparison.sort_values('Total Tax', ascending=False)
-                    
-                    # Create grouped bar chart
-                    fig_comparison = go.Figure()
-                    
-                    fig_comparison.add_trace(go.Bar(
-                        name='Properties',
-                        x=state_comparison['State'],
-                        y=state_comparison['Properties'],
-                        yaxis='y',
-                        offsetgroup=1,
-                        marker_color='lightblue'
-                    ))
-                    
-                    fig_comparison.add_trace(go.Bar(
-                        name='Total Tax (in $10k)',
-                        x=state_comparison['State'],
-                        y=state_comparison['Total Tax'] / 10000,
-                        yaxis='y',
-                        offsetgroup=2,
-                        marker_color='lightgreen'
-                    ))
-                    
-                    fig_comparison.update_layout(
-                        title='State-by-State Comparison',
-                        xaxis=dict(title='State'),
-                        yaxis=dict(title='Count / Amount'),
-                        barmode='group',
-                        height=400,
-                        hovermode='x unified'
-                    )
-                    
-                    st.plotly_chart(fig_comparison, use_container_width=True)
-                    
-                else:
-                    st.info("Geographic data not available for analysis")
-            else:
-                st.info("No property data available")
-        else:
-            st.warning("Unable to fetch data for geographic analysis")
-    except Exception as e:
-        st.error(f"Error loading geographic data: {e}")
+                        st.plotly_chart(fig_timeline, use_container_width=True)
 
-with tab5:
-    st.header("🔄 Tax Extraction")
-    st.caption("Extract tax data from county websites (Conservative approach)")
+with tab2:
+    st.header("🏢 Properties Detail")
     
-    # Safety warning
-    st.warning("⚠️ **Important**: This feature makes real requests to county tax websites. Please use responsibly and respect rate limits.")
-    
-    # Check if extraction API is available
-    extraction_available = False
-    supported_jurisdictions = []
-    
-    try:
-        # Check if extraction endpoint exists (would need api_with_extraction.py running)
-        test_response = requests.get(f"{API_URL}/api/v1/extract/status", timeout=5)
-        if test_response.status_code == 200:
-            extraction_available = True
-            status_data = test_response.json()
-            supported_jurisdictions = status_data.get("supported_jurisdictions", [])
-    except:
-        pass
-    
-    if not extraction_available:
-        st.info("📝 **Note**: Tax extraction requires the enhanced API to be running locally. Currently using the basic API.")
-        st.code("# To enable extraction, run locally:\npython api_with_extraction.py", language="bash")
-    else:
-        # Extraction interface
-        col1, col2 = st.columns([2, 1])
+    if not df.empty:
+        # Display summary
+        st.info(f"Showing {len(df)} properties based on current filters")
+        
+        # Prepare display dataframe
+        display_df = df.copy()
+        
+        # Format columns for display
+        if 'tax_due_date' in display_df.columns:
+            display_df['tax_due_date_formatted'] = display_df['tax_due_date_dt'].apply(
+                lambda x: format_due_date(x) if pd.notna(x) else "-"
+            )
+        
+        if 'paid_by' in display_df.columns:
+            display_df['paid_by_formatted'] = display_df['paid_by'].apply(format_paid_by)
+        
+        # Select columns to display
+        display_cols = ['property_name', 'property_address', 'jurisdiction', 'state']
+        
+        if 'tax_due_date_formatted' in display_df.columns:
+            display_cols.append('tax_due_date_formatted')
+        
+        if 'paid_by_formatted' in display_df.columns:
+            display_cols.append('paid_by_formatted')
+        
+        # Rename columns for display
+        rename_map = {
+            'property_name': 'Property Name',
+            'property_address': 'Address',
+            'jurisdiction': 'Jurisdiction',
+            'state': 'State',
+            'tax_due_date_formatted': 'Due Date',
+            'paid_by_formatted': 'Paid By'
+        }
+        
+        display_df = display_df[display_cols].rename(columns=rename_map)
+        
+        # Display with HTML for formatting
+        st.write(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+        
+        # Export options
+        st.divider()
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.subheader("📋 Select Properties for Extraction")
-            
-            # Get properties that need extraction
-            try:
-                props_response = requests.get(f"{API_URL}/api/v1/properties?needs_extraction=true&limit=100", timeout=10)
-                if props_response.status_code == 200:
-                    properties = props_response.json().get("properties", [])
-                    
-                    if properties:
-                        # Filter for supported jurisdictions
-                        supported_props = []
-                        unsupported_props = []
-                        
-                        for prop in properties:
-                            jurisdiction = prop.get("jurisdiction", "")
-                            is_supported = any(
-                                s.lower() in jurisdiction.lower() 
-                                for s in supported_jurisdictions
-                            )
-                            if is_supported:
-                                supported_props.append(prop)
-                            else:
-                                unsupported_props.append(prop)
-                        
-                        if supported_props:
-                            st.success(f"✅ Found {len(supported_props)} properties in supported jurisdictions")
-                            
-                            # Create selection dataframe
-                            import pandas as pd
-                            df_props = pd.DataFrame(supported_props)
-                            df_props['select'] = False
-                            
-                            # Display with selection
-                            st.write("Select properties to extract (max 5 at a time):")
-                            
-                            selected_indices = st.multiselect(
-                                "Choose properties:",
-                                options=range(len(supported_props)),
-                                format_func=lambda x: f"{supported_props[x]['property_name'][:50]} ({supported_props[x]['jurisdiction']})",
-                                max_selections=5
-                            )
-                            
-                            if selected_indices:
-                                selected_props = [supported_props[i] for i in selected_indices]
-                                
-                                st.write(f"**Selected {len(selected_props)} properties:**")
-                                for prop in selected_props:
-                                    st.write(f"• {prop['property_name'][:60]} - {prop['jurisdiction']}")
-                                
-                                # Extract button
-                                if st.button("🚀 Start Extraction", type="primary", use_container_width=True):
-                                    with st.spinner("Extracting tax data..."):
-                                        success_count = 0
-                                        fail_count = 0
-                                        
-                                        progress_bar = st.progress(0)
-                                        status_text = st.empty()
-                                        
-                                        for i, prop in enumerate(selected_props):
-                                            status_text.text(f"Processing: {prop['property_name'][:40]}...")
-                                            
-                                            # Make extraction request
-                                            extraction_request = {
-                                                "property_id": prop["id"],
-                                                "jurisdiction": prop["jurisdiction"],
-                                                "tax_bill_link": prop.get("tax_bill_link", ""),
-                                                "account_number": prop.get("account_number"),
-                                                "property_name": prop.get("property_name")
-                                            }
-                                            
-                                            try:
-                                                extract_response = requests.post(
-                                                    f"{API_URL}/api/v1/extract",
-                                                    json=extraction_request,
-                                                    timeout=30
-                                                )
-                                                
-                                                if extract_response.status_code == 200:
-                                                    result = extract_response.json()
-                                                    if result.get("success"):
-                                                        success_count += 1
-                                                        st.success(f"✅ Extracted: ${result.get('tax_amount', 0):.2f}")
-                                                    else:
-                                                        fail_count += 1
-                                                        st.error(f"❌ Failed: {result.get('error_message', 'Unknown error')}")
-                                                else:
-                                                    fail_count += 1
-                                                    st.error(f"❌ API error: {extract_response.status_code}")
-                                                    
-                                            except Exception as e:
-                                                fail_count += 1
-                                                st.error(f"❌ Error: {str(e)[:100]}")
-                                            
-                                            # Update progress
-                                            progress_bar.progress((i + 1) / len(selected_props))
-                                            
-                                            # Rate limiting
-                                            if i < len(selected_props) - 1:
-                                                import time
-                                                time.sleep(2)
-                                        
-                                        status_text.text("Extraction complete!")
-                                        
-                                        # Show results
-                                        st.balloons()
-                                        st.success(f"""
-                                        **Extraction Complete!**
-                                        - ✅ Successful: {success_count}
-                                        - ❌ Failed: {fail_count}
-                                        """)
-                                        
-                                        if st.button("🔄 Refresh Dashboard"):
-                                            st.rerun()
-                            
-                        else:
-                            st.warning("No properties found in supported jurisdictions that need extraction")
-                        
-                        if unsupported_props:
-                            with st.expander(f"⚠️ {len(unsupported_props)} properties in unsupported jurisdictions"):
-                                for prop in unsupported_props[:10]:
-                                    st.write(f"• {prop['property_name'][:50]} - {prop['jurisdiction']}")
-                                if len(unsupported_props) > 10:
-                                    st.write(f"... and {len(unsupported_props) - 10} more")
-                    else:
-                        st.info("All properties have been extracted! 🎉")
-                        
-            except Exception as e:
-                st.error(f"Error loading properties: {e}")
+            # CSV export
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name=f"properties_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
         
         with col2:
-            st.subheader("ℹ️ Extraction Info")
+            # Excel export
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Properties', index=False)
+                
+                # Add summary sheet
+                summary_data = {
+                    'Metric': ['Total Properties', 'Total Outstanding Tax', 'Properties with Due Dates'],
+                    'Value': [len(df), df['outstanding_tax'].sum() if 'outstanding_tax' in df.columns else 0,
+                             df['tax_due_date'].notna().sum() if 'tax_due_date' in df.columns else 0]
+                }
+                pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
             
-            # Show supported jurisdictions
-            st.write("**Supported Jurisdictions:**")
-            for jur in supported_jurisdictions:
-                st.write(f"• {jur}")
-            
-            # Show extraction statistics
-            try:
-                status_response = requests.get(f"{API_URL}/api/v1/extract/status", timeout=5)
-                if status_response.status_code == 200:
-                    status = status_response.json()
-                    
-                    st.metric("Total Properties", status.get("total_properties", 0))
-                    st.metric("Already Extracted", status.get("extracted_count", 0))
-                    st.metric("Pending Extraction", status.get("pending_count", 0))
-                    
-                    if status.get("total_properties", 0) > 0:
-                        progress = status.get("extracted_count", 0) / status.get("total_properties", 1)
-                        st.progress(progress)
-                        st.caption(f"{progress*100:.1f}% complete")
-                        
-            except:
-                pass
-            
-            # Safety guidelines
-            st.info("""
-            **Safety Guidelines:**
-            - Max 5 properties at once
-            - 2 second delay between requests
-            - Only supported jurisdictions
-            - Respects robots.txt
-            """)
+            excel_data = output.getvalue()
+            st.download_button(
+                label="📊 Download Excel",
+                data=excel_data,
+                file_name=f"properties_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        
+        with col3:
+            # JSON export
+            json_data = df.to_json(orient='records', date_format='iso')
+            st.download_button(
+                label="📋 Download JSON",
+                data=json_data,
+                file_name=f"properties_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+    else:
+        st.info("No properties found matching the current filters")
 
+with tab3:
+    st.header("📅 Tax Due Date Calendar")
+    
+    if not df.empty and 'tax_due_date_dt' in df.columns:
+        # Filter for valid dates
+        calendar_df = df[df['tax_due_date_dt'].notna()].copy()
+        
+        if not calendar_df.empty:
+            # Create calendar view
+            calendar_df['due_date'] = calendar_df['tax_due_date_dt'].dt.date
+            calendar_df['due_month'] = calendar_df['tax_due_date_dt'].dt.to_period('M')
+            
+            # Group by date for calendar
+            events = []
+            for _, row in calendar_df.iterrows():
+                event_color = '#28a745'  # Default green
+                if row['tax_due_date_dt'] < datetime.now():
+                    event_color = '#dc3545'  # Red for overdue
+                elif row['tax_due_date_dt'] <= datetime.now() + timedelta(days=30):
+                    event_color = '#ffc107'  # Yellow for upcoming
+                
+                events.append({
+                    'Property': row.get('property_name', 'Unknown'),
+                    'Due Date': row['due_date'],
+                    'Paid By': row.get('paid_by', 'Unknown'),
+                    'Jurisdiction': row.get('jurisdiction', 'Unknown'),
+                    'Color': event_color
+                })
+            
+            # Create timeline visualization
+            fig = go.Figure()
+            
+            for event in events:
+                fig.add_trace(go.Scatter(
+                    x=[event['Due Date']],
+                    y=[event['Paid By']],
+                    mode='markers+text',
+                    marker=dict(size=12, color=event['Color']),
+                    text=event['Property'],
+                    textposition="top center",
+                    hovertemplate=f"<b>{event['Property']}</b><br>" +
+                                 f"Due: {event['Due Date']}<br>" +
+                                 f"Paid By: {event['Paid By']}<br>" +
+                                 f"Jurisdiction: {event['Jurisdiction']}<br>" +
+                                 "<extra></extra>",
+                    showlegend=False
+                ))
+            
+            fig.update_layout(
+                title="Tax Due Dates Timeline",
+                xaxis_title="Due Date",
+                yaxis_title="Payment Responsibility",
+                height=600,
+                hovermode='closest',
+                xaxis=dict(
+                    tickformat='%b %d, %Y',
+                    tickangle=-45
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Monthly view
+            st.divider()
+            st.subheader("📆 Monthly Summary")
+            
+            # Group by month
+            monthly = calendar_df.groupby(calendar_df['tax_due_date_dt'].dt.to_period('M')).agg({
+                'property_id': 'count',
+                'paid_by': lambda x: x.value_counts().to_dict() if 'paid_by' in calendar_df.columns else {}
+            }).reset_index()
+            
+            monthly.columns = ['Month', 'Count', 'Paid By Distribution']
+            monthly['Month'] = monthly['Month'].astype(str)
+            
+            # Display monthly summary
+            for _, row in monthly.iterrows():
+                with st.expander(f"📅 {row['Month']} ({row['Count']} properties)"):
+                    month_properties = calendar_df[
+                        calendar_df['tax_due_date_dt'].dt.to_period('M').astype(str) == row['Month']
+                    ]
+                    
+                    for _, prop in month_properties.iterrows():
+                        st.write(f"• **{prop.get('property_name', 'Unknown')}** - "
+                                f"Due: {prop['tax_due_date_dt'].strftime('%m/%d/%Y')} - "
+                                f"Paid by: {prop.get('paid_by', 'Unknown')}")
+        else:
+            st.info("No properties with valid due dates found")
+    else:
+        st.info("No due date information available")
+
+with tab4:
+    st.header("📈 Advanced Analytics")
+    
+    if not df.empty:
+        # State-wise analysis
+        if 'state' in df.columns:
+            st.subheader("🗺️ Geographic Distribution")
+            
+            state_summary = df.groupby('state').agg({
+                'property_id': 'count',
+                'outstanding_tax': 'sum' if 'outstanding_tax' in df.columns else lambda x: 0
+            }).reset_index()
+            
+            state_summary.columns = ['State', 'Property Count', 'Total Outstanding Tax']
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig_state = px.bar(
+                    state_summary,
+                    x='State',
+                    y='Property Count',
+                    title='Properties by State',
+                    color='Property Count',
+                    color_continuous_scale='Blues'
+                )
+                st.plotly_chart(fig_state, use_container_width=True)
+            
+            with col2:
+                if 'Total Outstanding Tax' in state_summary.columns:
+                    fig_tax = px.bar(
+                        state_summary,
+                        x='State',
+                        y='Total Outstanding Tax',
+                        title='Outstanding Tax by State',
+                        color='Total Outstanding Tax',
+                        color_continuous_scale='Reds'
+                    )
+                    fig_tax.update_yaxis(tickformat='$,.0f')
+                    st.plotly_chart(fig_tax, use_container_width=True)
+        
+        # Jurisdiction analysis
+        if 'jurisdiction' in df.columns:
+            st.divider()
+            st.subheader("🏛️ Jurisdiction Analysis")
+            
+            jurisdiction_summary = df['jurisdiction'].value_counts().head(10)
+            
+            fig_jurisdiction = px.bar(
+                x=jurisdiction_summary.values,
+                y=jurisdiction_summary.index,
+                orientation='h',
+                title='Top 10 Jurisdictions by Property Count',
+                labels={'x': 'Number of Properties', 'y': 'Jurisdiction'}
+            )
+            st.plotly_chart(fig_jurisdiction, use_container_width=True)
+        
+        # Combined analysis
+        if 'paid_by' in df.columns and 'tax_due_date_dt' in df.columns:
+            st.divider()
+            st.subheader("🔄 Cross-Analysis: Payment Responsibility vs Due Dates")
+            
+            cross_df = df[df['tax_due_date_dt'].notna() & df['paid_by'].notna()].copy()
+            
+            if not cross_df.empty:
+                # Calculate days until due
+                cross_df['days_until_due'] = (cross_df['tax_due_date_dt'] - datetime.now()).dt.days
+                cross_df['urgency'] = pd.cut(
+                    cross_df['days_until_due'],
+                    bins=[-float('inf'), 0, 30, 60, float('inf')],
+                    labels=['Overdue', 'Due in 30 days', 'Due in 31-60 days', 'Due after 60 days']
+                )
+                
+                # Create heatmap
+                heatmap_data = pd.crosstab(cross_df['paid_by'], cross_df['urgency'])
+                
+                fig_heatmap = px.imshow(
+                    heatmap_data,
+                    labels=dict(x="Urgency", y="Paid By", color="Count"),
+                    title="Payment Responsibility by Due Date Urgency",
+                    color_continuous_scale='YlOrRd',
+                    aspect='auto'
+                )
+                st.plotly_chart(fig_heatmap, use_container_width=True)
+    else:
+        st.info("No data available for analytics")
+
+# Footer
 st.divider()
-st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+footer_col1, footer_col2, footer_col3 = st.columns(3)
+
+with footer_col1:
+    st.caption(f"🕐 Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+with footer_col2:
+    if not df.empty:
+        st.caption(f"📊 Showing {len(df)} of {stats.get('total_properties', 0)} properties")
+
+with footer_col3:
+    st.caption(f"🌐 API: {API_URL}")
