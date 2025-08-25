@@ -574,12 +574,31 @@ with tab3:
             st.subheader("📆 Monthly Summary")
             
             # Group by month
-            monthly = calendar_df.groupby(calendar_df['tax_due_date_dt'].dt.to_period('M')).agg({
-                'property_id': 'count',
-                'paid_by': lambda x: x.value_counts().to_dict() if 'paid_by' in calendar_df.columns else {}
-            }).reset_index()
+            # Determine which columns to aggregate
+            month_agg_dict = {}
             
-            monthly.columns = ['Month', 'Count', 'Paid By Distribution']
+            # Use first available column for count
+            if len(calendar_df.columns) > 0:
+                count_col = calendar_df.columns[0]
+                month_agg_dict[count_col] = 'count'
+            
+            # Add paid_by aggregation if available
+            if 'paid_by' in calendar_df.columns:
+                month_agg_dict['paid_by'] = lambda x: x.value_counts().to_dict()
+            
+            if month_agg_dict:
+                monthly = calendar_df.groupby(calendar_df['tax_due_date_dt'].dt.to_period('M')).agg(month_agg_dict).reset_index()
+                
+                # Rename columns based on what was aggregated
+                col_names = ['Month']
+                if count_col in month_agg_dict:
+                    col_names.append('Count')
+                if 'paid_by' in month_agg_dict:
+                    col_names.append('Paid By Distribution')
+                monthly.columns = col_names[:len(monthly.columns)]
+            else:
+                # Create empty monthly dataframe if no aggregation possible
+                monthly = pd.DataFrame({'Month': [], 'Count': [], 'Paid By Distribution': []})
             monthly['Month'] = monthly['Month'].astype(str)
             
             # Display monthly summary
@@ -603,15 +622,35 @@ with tab4:
     
     if not df.empty:
         # State-wise analysis
-        if 'state' in df.columns:
+        if 'state' in df.columns and not df.empty:
             st.subheader("🗺️ Geographic Distribution")
             
-            state_summary = df.groupby('state').agg({
-                'property_id': 'count',
-                'outstanding_tax': 'sum' if 'outstanding_tax' in df.columns else lambda x: 0
-            }).reset_index()
+            # Determine which columns to aggregate based on what's available
+            agg_dict = {}
             
-            state_summary.columns = ['State', 'Property Count', 'Total Outstanding Tax']
+            # Use the first available column for counting
+            if len(df.columns) > 0:
+                first_col = df.columns[0]
+                agg_dict[first_col] = 'count'
+            
+            # Add outstanding_tax sum if available
+            if 'outstanding_tax' in df.columns:
+                agg_dict['outstanding_tax'] = 'sum'
+            
+            # Only proceed if we have something to aggregate
+            if agg_dict:
+                state_summary = df.groupby('state').agg(agg_dict).reset_index()
+                
+                # Rename columns appropriately
+                col_names = ['State']
+                if first_col in agg_dict:
+                    col_names.append('Property Count')
+                if 'outstanding_tax' in agg_dict:
+                    col_names.append('Total Outstanding Tax')
+                state_summary.columns = col_names[:len(state_summary.columns)]
+            else:
+                # Create empty summary if no columns to aggregate
+                state_summary = pd.DataFrame({'State': [], 'Property Count': [], 'Total Outstanding Tax': []})
             
             col1, col2 = st.columns(2)
             
