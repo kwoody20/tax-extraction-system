@@ -148,6 +148,55 @@ def check_api_health():
     except Exception:
         return None, None
 
+def trigger_extraction(property_data):
+    """Trigger extraction for a single property."""
+    try:
+        payload = {
+            "property_id": property_data.get("property_id", ""),
+            "jurisdiction": property_data.get("jurisdiction", ""),
+            "tax_bill_link": property_data.get("tax_bill_link", ""),
+            "account_number": property_data.get("acct_number"),
+            "property_name": property_data.get("property_name", "")
+        }
+        response = requests.post(
+            f"{API_URL}/api/v1/extract",
+            json=payload,
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"success": False, "error_message": f"API returned {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "error_message": str(e)}
+
+def trigger_batch_extraction(property_ids):
+    """Trigger batch extraction for multiple properties."""
+    try:
+        payload = {"property_ids": property_ids}
+        response = requests.post(
+            f"{API_URL}/api/v1/extract/batch",
+            json=payload,
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"status": "failed", "message": f"API returned {response.status_code}"}
+    except Exception as e:
+        return {"status": "failed", "message": str(e)}
+
+def get_supported_jurisdictions():
+    """Get list of supported jurisdictions from API."""
+    try:
+        response = requests.get(f"{API_URL}/api/v1/jurisdictions", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("jurisdictions", {})
+        return {}
+    except Exception:
+        return {}
+
 def format_paid_by(value):
     """Format paid_by field with color coding."""
     if pd.isna(value) or value == "":
@@ -284,7 +333,7 @@ with st.sidebar:
         show_upcoming_30 = st.checkbox("Due in Next 30 Days", value=False)
 
 # Main content with enhanced tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "📈 Analytics"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "📈 Analytics", "🔄 Tax Extraction"])
 
 # Load data once for all tabs
 with st.spinner("Loading data..."):
@@ -889,6 +938,244 @@ with tab4:
                 st.plotly_chart(fig_heatmap, use_container_width=True)
     else:
         st.info("No data available for analytics")
+
+with tab5:
+    st.header("🔄 Tax Extraction Service")
+    
+    # Get supported jurisdictions
+    supported_jurisdictions = get_supported_jurisdictions()
+    
+    if supported_jurisdictions:
+        # Display supported jurisdictions info
+        st.subheader("📍 Supported Jurisdictions")
+        
+        # Define the 8 cloud-supported jurisdictions
+        cloud_supported = {
+            "Montgomery": {"name": "Montgomery County, TX", "confidence": "High", "method": "HTTP"},
+            "Fort Bend": {"name": "Fort Bend County, TX", "confidence": "High", "method": "HTTP"},
+            "Chambers": {"name": "Chambers County, TX", "confidence": "Medium", "method": "HTTP"},
+            "Galveston": {"name": "Galveston County, TX", "confidence": "Medium", "method": "HTTP"},
+            "Aldine ISD": {"name": "Aldine ISD, TX", "confidence": "High", "method": "HTTP"},
+            "Goose Creek ISD": {"name": "Goose Creek ISD, TX", "confidence": "High", "method": "HTTP"},
+            "Spring Creek": {"name": "Spring Creek U.D., TX", "confidence": "Medium", "method": "HTTP"},
+            "Barbers Hill ISD": {"name": "Barbers Hill ISD, TX", "confidence": "Medium", "method": "HTTP"}
+        }
+        
+        # Display jurisdiction cards
+        cols = st.columns(4)
+        for idx, (key, info) in enumerate(cloud_supported.items()):
+            with cols[idx % 4]:
+                confidence_color = "🟢" if info["confidence"] == "High" else "🟡"
+                st.info(f"{confidence_color} **{info['name']}**\n\nConfidence: {info['confidence']}\nMethod: {info['method']}")
+        
+        st.divider()
+        
+        # Extraction interface
+        st.subheader("🎯 Extract Tax Data")
+        
+        extraction_mode = st.radio(
+            "Select extraction mode:",
+            ["Single Property", "Batch Extraction", "By Jurisdiction"]
+        )
+        
+        if extraction_mode == "Single Property":
+            # Single property extraction
+            st.write("Extract tax data for a single property")
+            
+            # Filter properties to show only supported jurisdictions
+            if properties:
+                # Filter for supported jurisdictions
+                supported_props = []
+                for prop in properties:
+                    jurisdiction = prop.get("jurisdiction", "")
+                    if any(key.lower() in jurisdiction.lower() for key in cloud_supported.keys()):
+                        supported_props.append(prop)
+                
+                if supported_props:
+                    # Create selection dropdown
+                    property_options = {
+                        f"{p.get('property_name', 'Unknown')} - {p.get('jurisdiction', 'Unknown')}": p
+                        for p in supported_props
+                    }
+                    
+                    selected_property = st.selectbox(
+                        "Select a property to extract:",
+                        options=list(property_options.keys()),
+                        help="Only properties in supported jurisdictions are shown"
+                    )
+                    
+                    if selected_property:
+                        property_data = property_options[selected_property]
+                        
+                        # Display property details
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write("**Property Details:**")
+                            st.write(f"• Name: {property_data.get('property_name', 'N/A')}")
+                            st.write(f"• Jurisdiction: {property_data.get('jurisdiction', 'N/A')}")
+                            st.write(f"• Account #: {property_data.get('acct_number', 'N/A')}")
+                        
+                        with col2:
+                            st.write("**Current Status:**")
+                            current_tax = property_data.get('amount_due', 0)
+                            if current_tax and current_tax > 0:
+                                st.write(f"• Tax Amount: ${current_tax:,.2f}")
+                                st.write(f"• Last Updated: {property_data.get('updated_at', 'N/A')}")
+                            else:
+                                st.write("• No tax data available")
+                                st.write("• Needs extraction")
+                        
+                        # Extraction button
+                        if st.button("🚀 Extract Tax Data", type="primary", key="single_extract"):
+                            with st.spinner(f"Extracting tax data for {property_data.get('property_name')}..."):
+                                result = trigger_extraction(property_data)
+                                
+                                if result.get("success"):
+                                    st.success(f"✅ Successfully extracted tax data!")
+                                    st.write(f"**Tax Amount:** ${result.get('tax_amount', 0):,.2f}")
+                                    if result.get('property_address'):
+                                        st.write(f"**Property Address:** {result.get('property_address')}")
+                                    st.write(f"**Extraction Method:** {result.get('extraction_method', 'HTTP')}")
+                                    st.write(f"**Confidence:** {result.get('confidence', 'N/A')}")
+                                else:
+                                    st.error(f"❌ Extraction failed: {result.get('error_message', 'Unknown error')}")
+                else:
+                    st.warning("No properties found in supported jurisdictions")
+            else:
+                st.warning("No properties available")
+        
+        elif extraction_mode == "Batch Extraction":
+            # Batch extraction
+            st.write("Extract tax data for multiple properties at once (max 10)")
+            
+            if properties:
+                # Filter for supported jurisdictions
+                supported_props = []
+                for prop in properties:
+                    jurisdiction = prop.get("jurisdiction", "")
+                    if any(key.lower() in jurisdiction.lower() for key in cloud_supported.keys()):
+                        supported_props.append(prop)
+                
+                if supported_props:
+                    # Multi-select for batch
+                    property_options = {
+                        f"{p.get('property_name', 'Unknown')} - {p.get('jurisdiction', 'Unknown')}": p.get('property_id')
+                        for p in supported_props
+                    }
+                    
+                    selected_properties = st.multiselect(
+                        "Select properties to extract (max 10):",
+                        options=list(property_options.keys()),
+                        max_selections=10,
+                        help="Select up to 10 properties for batch extraction"
+                    )
+                    
+                    if selected_properties:
+                        st.write(f"**Selected:** {len(selected_properties)} properties")
+                        
+                        # Batch extraction button
+                        if st.button("🚀 Start Batch Extraction", type="primary", key="batch_extract"):
+                            property_ids = [property_options[p] for p in selected_properties]
+                            
+                            with st.spinner(f"Starting batch extraction for {len(property_ids)} properties..."):
+                                result = trigger_batch_extraction(property_ids)
+                                
+                                if result.get("status") == "processing":
+                                    st.success(f"✅ Batch extraction started!")
+                                    st.write(f"**Message:** {result.get('message')}")
+                                    st.info("⏳ Extraction is processing in the background. Results will be stored in the database.")
+                                    st.write("**Property IDs being processed:**")
+                                    for pid in result.get("property_ids", []):
+                                        st.write(f"• {pid}")
+                                else:
+                                    st.error(f"❌ Failed to start batch extraction: {result.get('message', 'Unknown error')}")
+                else:
+                    st.warning("No properties found in supported jurisdictions")
+            else:
+                st.warning("No properties available")
+        
+        else:  # By Jurisdiction
+            # Extract by jurisdiction
+            st.write("Extract all properties in a specific jurisdiction")
+            
+            # Group properties by jurisdiction
+            if properties:
+                jurisdiction_groups = {}
+                for prop in properties:
+                    jurisdiction = prop.get("jurisdiction", "Unknown")
+                    # Check if it's a supported jurisdiction
+                    is_supported = any(key.lower() in jurisdiction.lower() for key in cloud_supported.keys())
+                    if is_supported:
+                        if jurisdiction not in jurisdiction_groups:
+                            jurisdiction_groups[jurisdiction] = []
+                        jurisdiction_groups[jurisdiction].append(prop)
+                
+                if jurisdiction_groups:
+                    selected_jurisdiction = st.selectbox(
+                        "Select a jurisdiction:",
+                        options=list(jurisdiction_groups.keys()),
+                        help="Only supported jurisdictions are shown"
+                    )
+                    
+                    if selected_jurisdiction:
+                        props_in_jurisdiction = jurisdiction_groups[selected_jurisdiction]
+                        st.write(f"**Properties in {selected_jurisdiction}:** {len(props_in_jurisdiction)}")
+                        
+                        # Show properties that would be extracted
+                        with st.expander("View properties to be extracted"):
+                            for prop in props_in_jurisdiction[:10]:  # Show first 10
+                                st.write(f"• {prop.get('property_name', 'Unknown')} - Account: {prop.get('acct_number', 'N/A')}")
+                            if len(props_in_jurisdiction) > 10:
+                                st.write(f"... and {len(props_in_jurisdiction) - 10} more")
+                        
+                        # Extract button
+                        if st.button(f"🚀 Extract All ({len(props_in_jurisdiction)} properties)", type="primary", key="jurisdiction_extract"):
+                            if len(props_in_jurisdiction) <= 10:
+                                property_ids = [p.get('property_id') for p in props_in_jurisdiction]
+                                
+                                with st.spinner(f"Extracting {len(property_ids)} properties from {selected_jurisdiction}..."):
+                                    result = trigger_batch_extraction(property_ids)
+                                    
+                                    if result.get("status") == "processing":
+                                        st.success(f"✅ Extraction started for {len(property_ids)} properties!")
+                                        st.info("⏳ Processing in background. Results will be stored in the database.")
+                                    else:
+                                        st.error(f"❌ Failed: {result.get('message', 'Unknown error')}")
+                            else:
+                                st.warning(f"⚠️ This jurisdiction has {len(props_in_jurisdiction)} properties. Please use batch extraction with groups of 10 or less.")
+                else:
+                    st.warning("No properties found in supported jurisdictions")
+            else:
+                st.warning("No properties available")
+        
+        # Extraction status section
+        st.divider()
+        st.subheader("📊 Extraction Statistics")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Calculate extraction stats from properties
+        if properties:
+            total_props = len(properties)
+            supported_count = sum(1 for p in properties if any(key.lower() in p.get("jurisdiction", "").lower() for key in cloud_supported.keys()))
+            extracted_count = sum(1 for p in properties if p.get("amount_due") and p.get("amount_due") > 0)
+            needs_extraction = supported_count - extracted_count
+            
+            with col1:
+                st.metric("Total Properties", total_props)
+            
+            with col2:
+                st.metric("Supported Properties", supported_count)
+            
+            with col3:
+                st.metric("Already Extracted", extracted_count)
+            
+            with col4:
+                st.metric("Needs Extraction", max(0, needs_extraction))
+        
+    else:
+        st.error("❌ Could not connect to extraction service. Please check API connection.")
+        st.info("API URL: " + API_URL)
 
 # Footer
 st.divider()
