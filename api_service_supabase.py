@@ -352,33 +352,40 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint - simplified for Railway deployment."""
+    # Basic health check that doesn't require database on startup
+    basic_health = {
+        "status": "healthy",
+        "service": "tax-extraction-api",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    # Try to check database if available
     try:
-        # Check database connection
-        db_client = db_manager.get_client()
-        stats = db_client.calculate_tax_statistics()
-        
-        # Get actual entity count directly
-        entities = db_client.get_entities(limit=100)
-        actual_entity_count = len(entities)
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "properties_count": stats.get("total_properties", 0),
-            "entities_count": actual_entity_count,  # Use actual count
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        # Only try database check if environment is configured
+        if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_KEY"):
+            db_client = db_manager.get_client()
+            stats = db_client.calculate_tax_statistics()
+            
+            # Get actual entity count directly
+            entities = db_client.get_entities(limit=100)
+            actual_entity_count = len(entities)
+            
+            basic_health.update({
+                "database": "connected",
+                "properties_count": stats.get("total_properties", 0),
+                "entities_count": actual_entity_count
+            })
+        else:
+            basic_health["database"] = "not_configured"
+            
     except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "database": "disconnected",
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        )
+        # Don't fail health check if database is temporarily unavailable
+        basic_health["database"] = "temporarily_unavailable"
+        basic_health["db_error"] = str(e)[:100]  # Truncate error message
+    
+    return basic_health
 
 @app.get("/api/v1/properties")
 async def get_properties(
