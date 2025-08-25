@@ -525,18 +525,27 @@ with tab3:
     if entities:
         entities_df = pd.DataFrame(entities)
         
-        # Categorize entities
+        # Categorize entities based on entity_type field
         parent_entities = []
         sub_entities = []
         single_property_entities = []
         
         for entity in entities:
-            if entity.get('parent_entity_id'):
+            entity_type = entity.get('entity_type', '').lower()
+            if entity_type == 'parent entity':
+                parent_entities.append(entity)
+            elif entity_type == 'sub-entity':
                 sub_entities.append(entity)
-            elif entity.get('property_count', 0) == 1:
+            elif entity_type == 'single-property entity':
                 single_property_entities.append(entity)
             else:
-                parent_entities.append(entity)
+                # Fallback logic if entity_type is missing or unknown
+                if entity.get('parent_entity_id'):
+                    sub_entities.append(entity)
+                elif entity.get('property_count', 0) == 1:
+                    single_property_entities.append(entity)
+                else:
+                    parent_entities.append(entity)
         
         # Display entity statistics
         col1, col2, col3, col4 = st.columns(4)
@@ -619,8 +628,11 @@ with tab3:
                         with col2:
                             # Find parent entity name
                             parent_id = entity.get('parent_entity_id')
-                            parent_name = next((e.get('entity_name') for e in parent_entities if e.get('entity_id') == parent_id), 'Unknown')
-                            st.write(f"**Parent Entity:** {parent_name}")
+                            if parent_id:
+                                parent_name = next((e.get('entity_name') for e in parent_entities if e.get('entity_id') == parent_id), 'Unknown')
+                                st.write(f"**Parent Entity:** {parent_name}")
+                            else:
+                                st.write(f"**Parent Entity:** Not linked")
                             st.write(f"**Created:** {entity.get('created_at', 'N/A')}")
                             if entity.get('notes'):
                                 st.write(f"**Notes:** {entity.get('notes')}")
@@ -647,7 +659,10 @@ with tab3:
                 st.info("No single-property entities found")
         
         # Entity Relationship Network (if there are relationships)
-        if parent_entities and sub_entities:
+        # Check if sub-entities have parent_entity_id set
+        has_relationships = any(entity.get('parent_entity_id') for entity in sub_entities)
+        
+        if parent_entities and sub_entities and has_relationships:
             st.subheader("🔗 Entity Relationships Network")
             
             # Create a simple network visualization
@@ -719,6 +734,8 @@ with tab3:
             )
             
             st.plotly_chart(fig_network, use_container_width=True)
+        elif parent_entities and sub_entities and not has_relationships:
+            st.info("ℹ️ Entity relationships are not configured in the database. Sub-entities exist but are not linked to parent entities.")
         
         # Export functionality
         st.subheader("📤 Export Entity Data")
