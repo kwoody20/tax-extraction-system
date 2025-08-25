@@ -62,8 +62,9 @@ class Settings(BaseSettings):
     
     def __init__(self, **data):
         super().__init__(**data)
+        # Don't fail at startup - just log a warning
         if not self.supabase_url or not self.supabase_key:
-            raise ValueError("Please set SUPABASE_URL and SUPABASE_KEY environment variables")
+            logger.warning("SUPABASE_URL and SUPABASE_KEY environment variables not set - database features will be unavailable")
     
     # API Configuration
     api_title: str = "Tax Extraction API with Supabase"
@@ -116,22 +117,40 @@ class DatabaseManager:
         self.client = None
         self.async_client = None
         
-    def get_client(self) -> SupabasePropertyTaxClient:
+    def get_client(self) -> Optional[SupabasePropertyTaxClient]:
         """Get synchronous Supabase client."""
         if not self.client:
-            self.client = SupabasePropertyTaxClient(
-                url=settings.supabase_url,
-                key=settings.supabase_service_key or settings.supabase_key
-            )
+            # Only create client if credentials are available
+            if settings.supabase_url and settings.supabase_key:
+                try:
+                    self.client = SupabasePropertyTaxClient(
+                        url=settings.supabase_url,
+                        key=settings.supabase_service_key or settings.supabase_key
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create Supabase client: {e}")
+                    return None
+            else:
+                logger.warning("Cannot create Supabase client - missing credentials")
+                return None
         return self.client
     
-    async def get_async_client(self) -> AsyncSupabasePropertyTaxClient:
+    async def get_async_client(self) -> Optional[AsyncSupabasePropertyTaxClient]:
         """Get asynchronous Supabase client."""
         if not self.async_client:
-            self.async_client = AsyncSupabasePropertyTaxClient(
-                url=settings.supabase_url,
-                key=settings.supabase_service_key or settings.supabase_key
-            )
+            # Only create client if credentials are available
+            if settings.supabase_url and settings.supabase_key:
+                try:
+                    self.async_client = AsyncSupabasePropertyTaxClient(
+                        url=settings.supabase_url,
+                        key=settings.supabase_service_key or settings.supabase_key
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create async Supabase client: {e}")
+                    return None
+            else:
+                logger.warning("Cannot create async Supabase client - missing credentials")
+                return None
         return self.async_client
 
 db_manager = DatabaseManager()
@@ -366,17 +385,20 @@ async def health_check():
         # Only try database check if environment is configured
         if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_KEY"):
             db_client = db_manager.get_client()
-            stats = db_client.calculate_tax_statistics()
-            
-            # Get actual entity count directly
-            entities = db_client.get_entities(limit=100)
-            actual_entity_count = len(entities)
-            
-            basic_health.update({
-                "database": "connected",
-                "properties_count": stats.get("total_properties", 0),
-                "entities_count": actual_entity_count
-            })
+            if db_client:
+                stats = db_client.calculate_tax_statistics()
+                
+                # Get actual entity count directly
+                entities = db_client.get_entities(limit=100)
+                actual_entity_count = len(entities)
+                
+                basic_health.update({
+                    "database": "connected",
+                    "properties_count": stats.get("total_properties", 0),
+                    "entities_count": actual_entity_count
+                })
+            else:
+                basic_health["database"] = "initialization_failed"
         else:
             basic_health["database"] = "not_configured"
             
