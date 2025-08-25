@@ -510,6 +510,17 @@ with tab2:
 with tab3:
     st.header("📅 Tax Due Date Calendar")
     
+    # Add legend for color coding
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("🔴 **Overdue**")
+    with col2:
+        st.markdown("🟡 **Due in 30 days**")
+    with col3:
+        st.markdown("🟢 **Future**")
+    with col4:
+        st.markdown(f"**Total: {len(df[df['tax_due_date_dt'].notna()]) if 'tax_due_date_dt' in df.columns else 0}** properties")
+    
     if not df.empty and 'tax_due_date_dt' in df.columns:
         # Filter for valid dates
         calendar_df = df[df['tax_due_date_dt'].notna()].copy()
@@ -536,34 +547,52 @@ with tab3:
                     'Color': event_color
                 })
             
-            # Create timeline visualization
+            # Create timeline visualization with categorical y-axis
+            # Get unique paid_by values for y-axis categories
+            unique_paid_by = calendar_df['paid_by'].fillna('Unknown').unique()
+            
+            # Create the figure with categorical y-axis
             fig = go.Figure()
             
-            for event in events:
-                fig.add_trace(go.Scatter(
-                    x=[event['Due Date']],
-                    y=[event['Paid By']],
-                    mode='markers+text',
-                    marker=dict(size=12, color=event['Color']),
-                    text=event['Property'],
-                    textposition="top center",
-                    hovertemplate=f"<b>{event['Property']}</b><br>" +
-                                 f"Due: {event['Due Date']}<br>" +
-                                 f"Paid By: {event['Paid By']}<br>" +
-                                 f"Jurisdiction: {event['Jurisdiction']}<br>" +
-                                 "<extra></extra>",
-                    showlegend=False
-                ))
+            # Group events by paid_by for better visualization
+            for paid_by in unique_paid_by:
+                paid_by_events = [e for e in events if e['Paid By'] == paid_by]
+                
+                if paid_by_events:
+                    dates = [e['Due Date'] for e in paid_by_events]
+                    colors = [e['Color'] for e in paid_by_events]
+                    texts = [e['Property'] for e in paid_by_events]
+                    
+                    fig.add_trace(go.Scatter(
+                        x=dates,
+                        y=[paid_by] * len(dates),
+                        mode='markers+text',
+                        marker=dict(size=12, color=colors),
+                        text=texts,
+                        textposition="top center",
+                        textfont=dict(size=9),
+                        hovertemplate='<b>%{text}</b><br>' +
+                                     f'Paid By: {paid_by}<br>' +
+                                     'Due: %{x}<br>' +
+                                     '<extra></extra>',
+                        showlegend=False
+                    ))
             
             fig.update_layout(
                 title="Tax Due Dates Timeline",
                 xaxis_title="Due Date",
                 yaxis_title="Payment Responsibility",
-                height=600,
+                height=max(400, 100 * len(unique_paid_by)),  # Dynamic height based on categories
                 hovermode='closest',
                 xaxis=dict(
                     tickformat='%b %d, %Y',
-                    tickangle=-45
+                    tickangle=-45,
+                    rangeslider=dict(visible=True)  # Add range slider for better navigation
+                ),
+                yaxis=dict(
+                    type='category',
+                    categoryorder='array',
+                    categoryarray=sorted(unique_paid_by)  # Sort categories alphabetically
                 )
             )
             
