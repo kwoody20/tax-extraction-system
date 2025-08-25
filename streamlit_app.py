@@ -27,9 +27,15 @@ st.set_page_config(
     }
 )
 
-# Custom CSS for better styling
+# Custom CSS for better styling - Hide hamburger menu
 st.markdown("""
 <style>
+    /* Hide the hamburger menu */
+    #MainMenu {visibility: hidden;}
+    /* Hide the footer */
+    footer {visibility: hidden;}
+    /* Hide the header decoration */
+    header {visibility: hidden;}
     .stMetric {
         background-color: #f0f2f6;
         padding: 15px;
