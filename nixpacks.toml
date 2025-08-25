@@ -6,8 +6,8 @@ nixPkgs = ["python311"]
 
 [phases.install]
 cmds = [
-    "pip install -r requirements-railway.txt"
+    "python -m pip install -r requirements-railway.txt"
 ]
 
 [start]
-cmd = "uvicorn api_service_supabase:app --host 0.0.0.0 --port $PORT"
+cmd = "uvicorn api_minimal:app --host 0.0.0.0 --port $PORT"
