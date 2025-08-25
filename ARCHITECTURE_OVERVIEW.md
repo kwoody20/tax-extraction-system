@@ -149,7 +149,7 @@ production branch (stable)
 ## 🔧 Local Development Files (Not Deployed)
 
 ### Extraction System
-- `extracting-tests-818/MASTER_TAX_EXTRACTOR.py` - Main extraction engine
+- `MASTER_TAX_EXTRACTOR.py` - Main extraction engine
 - `robust_tax_extractor.py` - Enhanced extraction with retry logic
 - `selenium_tax_extractors.py` - Browser-based extraction
 - Other extractors - Various specialized extractors
