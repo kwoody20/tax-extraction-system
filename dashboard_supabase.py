@@ -390,6 +390,8 @@ def render_properties_table(state_filter: str, jurisdiction_filter: str, entity_
                 'state': 'State',
                 'amount_due': 'Amount Due',
                 'previous_year_taxes': 'Previous Year',
+                'tax_due_date': 'Due Date',
+                'paid_by': 'Paid By',
                 'parent_entity_name': 'Entity',
                 'property_id': 'ID'
             }
@@ -404,6 +406,11 @@ def render_properties_table(state_filter: str, jurisdiction_filter: str, entity_
             if 'Previous Year' in df_display.columns:
                 df_display['Previous Year'] = df_display['Previous Year'].apply(lambda x: format_currency(x) if pd.notna(x) else "$0.00")
             
+            # Format date column
+            if 'Due Date' in df_display.columns:
+                df_display['Due Date'] = pd.to_datetime(df_display['Due Date'], errors='coerce').dt.strftime('%m/%d/%Y')
+                df_display['Due Date'] = df_display['Due Date'].fillna('')
+            
             # Add selection
             selected = st.data_editor(
                 df_display,
@@ -413,6 +420,8 @@ def render_properties_table(state_filter: str, jurisdiction_filter: str, entity_
                 disabled=df_display.columns.tolist(),
                 column_config={
                     "ID": st.column_config.TextColumn(width="small"),
+                    "Due Date": st.column_config.TextColumn(width="small"),
+                    "Paid By": st.column_config.TextColumn(width="small"),
                 }
             )
             

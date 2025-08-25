@@ -89,6 +89,15 @@ with tab2:
             if properties:
                 df = pd.DataFrame(properties)
                 
+                # Format date column if present
+                if 'tax_due_date' in df.columns:
+                    df['tax_due_date'] = pd.to_datetime(df['tax_due_date'], errors='coerce').dt.strftime('%m/%d/%Y')
+                    df['tax_due_date'] = df['tax_due_date'].fillna('')
+                
+                # Format amount_due column if present
+                if 'amount_due' in df.columns:
+                    df['amount_due_formatted'] = df['amount_due'].apply(lambda x: f"${x:,.2f}" if pd.notna(x) and x > 0 else "")
+                
                 # Search and Filter Section
                 col1, col2, col3, col4 = st.columns(4)
                 
@@ -147,8 +156,13 @@ with tab2:
                     unique_states = filtered_df['state'].nunique() if 'state' in filtered_df.columns else 0
                     st.metric("States", unique_states)
                 
-                # Display filtered data
-                display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state']
+                # Display filtered data - include new fields
+                display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due_formatted']
+                # Use amount_due_formatted if it exists, otherwise amount_due
+                if 'amount_due_formatted' in filtered_df.columns:
+                    display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due_formatted']
+                else:
+                    display_cols = ['property_name', 'property_address', 'parent_entity_name', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'amount_due']
                 available_cols = [col for col in display_cols if col in filtered_df.columns]
                 
                 if available_cols and len(filtered_df) > 0:
@@ -310,7 +324,7 @@ with tab3:
                         
                         # Property details table
                         st.subheader("Properties")
-                        display_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'tax_amount', 'previous_year_tax']
+                        display_cols = ['property_name', 'property_address', 'jurisdiction', 'state', 'tax_due_date', 'paid_by', 'tax_amount', 'previous_year_tax']
                         available_cols = [col for col in display_cols if col in entity_properties.columns]
                         
                         if available_cols:
