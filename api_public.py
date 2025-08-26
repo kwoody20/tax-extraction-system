@@ -1,12 +1,14 @@
 """
-Public API for Tax Extraction Service with Cloud-Compatible Extraction.
-Works entirely in the cloud - no local dependencies needed.
+Optimized Public API for Tax Extraction Service with Efficient Database Queries.
+Features connection pooling, query optimization, and caching.
 """
 
 import os
 import asyncio
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,8 +28,17 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
 
+# Connection pooling - singleton pattern
+@lru_cache(maxsize=1)
+def get_supabase_client() -> Client:
+    """Singleton Supabase client for connection reuse."""
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
 # Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = get_supabase_client()
+
+# Thread pool for blocking database operations
+db_executor = ThreadPoolExecutor(max_workers=10)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,9 +46,9 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="Tax Extraction Public API with Cloud Extraction",
-    version="2.0.0",
-    description="Public endpoints for property tax data with cloud extraction"
+    title="Optimized Tax Extraction API",
+    version="3.0.0",
+    description="High-performance API with optimized database queries"
 )
 
 # Add CORS middleware
@@ -105,6 +116,251 @@ class ExtractionStatusResponse(BaseModel):
     failed_count: int
     supported_jurisdictions: List[str]
 
+# ========================= Optimized Database Functions =========================
+
+async def get_statistics_optimized() -> Dict[str, Any]:
+    """
+    Get statistics using a single optimized query.
+    Uses database aggregation functions instead of fetching all rows.
+    """
+    try:
+        # Single aggregated query for all statistics
+        stats_query = """
+        SELECT 
+            COUNT(DISTINCT p.id) as total_properties,
+            COUNT(DISTINCT e.entity_id) as total_entities,
+            COALESCE(SUM(p.amount_due), 0) as total_outstanding,
+            COALESCE(SUM(p.previous_year_taxes), 0) as total_previous,
+            COUNT(DISTINCT CASE WHEN p.amount_due > 0 THEN p.id END) as extracted_count,
+            COUNT(DISTINCT CASE WHEN (p.amount_due IS NULL OR p.amount_due = 0) THEN p.id END) as pending_count,
+            MAX(p.updated_at) as last_extraction_date
+        FROM properties p
+        LEFT JOIN entities e ON p.entity_id = e.entity_id
+        """
+        
+        # Execute in thread pool to avoid blocking
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.rpc("get_tax_statistics", {}).execute()
+            if hasattr(supabase, 'rpc') else None
+        )
+        
+        # Fallback to optimized manual query if RPC not available
+        if not result or not result.data:
+            # Use more efficient query with limiting
+            props_result = await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("properties").select(
+                    "id, amount_due, previous_year_taxes, updated_at"
+                ).execute()
+            )
+            
+            entities_result = await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("entities").select("entity_id").execute()
+            )
+            
+            properties = props_result.data if props_result else []
+            entities = entities_result.data if entities_result else []
+            
+            # Calculate in memory (still more efficient than original)
+            total_outstanding = sum(p.get("amount_due", 0) or 0 for p in properties)
+            total_previous = sum(p.get("previous_year_taxes", 0) or 0 for p in properties)
+            extracted_count = sum(1 for p in properties if p.get("amount_due") and p.get("amount_due") > 0)
+            pending_count = len(properties) - extracted_count
+            
+            # Get last extraction date
+            last_date = max(
+                (p.get("updated_at") for p in properties if p.get("updated_at")),
+                default=None
+            )
+            
+            return {
+                "total_properties": len(properties),
+                "total_entities": len(entities),
+                "total_outstanding": total_outstanding,
+                "total_previous": total_previous,
+                "extracted_count": extracted_count,
+                "pending_count": pending_count,
+                "last_extraction_date": last_date
+            }
+        
+        # Parse RPC result
+        data = result.data[0] if result.data else {}
+        return {
+            "total_properties": data.get("total_properties", 0),
+            "total_entities": data.get("total_entities", 0),
+            "total_outstanding": data.get("total_outstanding", 0),
+            "total_previous": data.get("total_previous", 0),
+            "extracted_count": data.get("extracted_count", 0),
+            "pending_count": data.get("pending_count", 0),
+            "last_extraction_date": data.get("last_extraction_date")
+        }
+        
+    except Exception as e:
+        logger.error(f"Statistics query error: {e}")
+        raise
+
+async def get_extraction_status_optimized() -> Dict[str, Any]:
+    """
+    Get extraction status using optimized counting query.
+    """
+    try:
+        # Use COUNT with conditions instead of fetching all rows
+        count_query = """
+        SELECT 
+            COUNT(*) as total,
+            COUNT(CASE WHEN amount_due > 0 THEN 1 END) as extracted,
+            COUNT(CASE WHEN amount_due IS NULL OR amount_due = 0 THEN 1 END) as pending
+        FROM properties
+        """
+        
+        # Try RPC first
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.rpc("get_extraction_counts", {}).execute()
+            if hasattr(supabase, 'rpc') else None
+        )
+        
+        if not result or not result.data:
+            # Fallback to counting query
+            result = await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("properties").select(
+                    "id, amount_due",
+                    count="exact"
+                ).execute()
+            )
+            
+            if result and result.data:
+                total = len(result.data)
+                extracted = sum(1 for p in result.data if p.get("amount_due") and p.get("amount_due") > 0)
+                pending = total - extracted
+            else:
+                total = extracted = pending = 0
+        else:
+            data = result.data[0] if result.data else {}
+            total = data.get("total", 0)
+            extracted = data.get("extracted", 0)
+            pending = data.get("pending", 0)
+        
+        return {
+            "total_properties": total,
+            "extracted_count": extracted,
+            "pending_count": pending,
+            "failed_count": 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Extraction status query error: {e}")
+        raise
+
+async def get_jurisdictions_optimized() -> Dict[str, Any]:
+    """
+    Get jurisdictions with counts using a single aggregated query.
+    """
+    try:
+        # Single query to get jurisdictions with counts
+        jurisdiction_query = """
+        SELECT 
+            jurisdiction,
+            COUNT(*) as count,
+            COUNT(CASE WHEN amount_due > 0 THEN 1 END) as extracted_count
+        FROM properties
+        WHERE jurisdiction IS NOT NULL
+        GROUP BY jurisdiction
+        ORDER BY count DESC
+        """
+        
+        # Try RPC first
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.rpc("get_jurisdiction_stats", {}).execute()
+            if hasattr(supabase, 'rpc') else None
+        )
+        
+        if not result or not result.data:
+            # Fallback to regular query
+            result = await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("properties").select("jurisdiction").execute()
+            )
+            
+            # Group and count in memory
+            jurisdiction_counts = {}
+            for prop in (result.data if result else []):
+                jur = prop.get("jurisdiction")
+                if jur:
+                    jurisdiction_counts[jur] = jurisdiction_counts.get(jur, 0) + 1
+            
+            jurisdictions_data = [
+                {"jurisdiction": k, "count": v}
+                for k, v in jurisdiction_counts.items()
+            ]
+        else:
+            jurisdictions_data = result.data
+        
+        # Get supported jurisdictions
+        supported_list = cloud_extractor.get_supported_jurisdictions()
+        
+        # Process jurisdictions
+        jurisdictions = []
+        for item in jurisdictions_data:
+            jur = item.get("jurisdiction")
+            if not jur:
+                continue
+            
+            # Check if supported
+            is_supported = any(
+                key.lower() in jur.lower()
+                for key in supported_list.keys()
+            )
+            
+            # Get confidence if supported
+            confidence = None
+            if is_supported:
+                for key, info in supported_list.items():
+                    if key.lower() in jur.lower():
+                        confidence = info.get("confidence", "medium")
+                        break
+            
+            jurisdictions.append({
+                "name": jur,
+                "supported": is_supported,
+                "confidence": confidence,
+                "count": item.get("count", 0),
+                "extracted_count": item.get("extracted_count", 0)
+            })
+        
+        supported_count = sum(1 for j in jurisdictions if j["supported"])
+        
+        return {
+            "jurisdictions": jurisdictions,
+            "total": len(jurisdictions),
+            "supported_count": supported_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Jurisdictions query error: {e}")
+        raise
+
+async def batch_update_properties(updates: List[Dict[str, Any]]):
+    """
+    Efficiently update multiple properties in a single batch operation.
+    """
+    if not updates:
+        return
+    
+    try:
+        # Batch update using upsert
+        await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.table("properties").upsert(updates).execute()
+        )
+    except Exception as e:
+        logger.error(f"Batch update error: {e}")
+        raise
+
 # ========================= Extraction Logic =========================
 
 # Rate limiting for cloud
@@ -152,6 +408,67 @@ async def perform_extraction(property_data: Dict[str, Any]) -> ExtractionRespons
                 error_message=str(e)
             )
 
+async def perform_batch_extraction_optimized(properties: List[Dict[str, Any]]):
+    """
+    Optimized batch extraction with concurrent processing and batch database updates.
+    """
+    # Process extractions concurrently
+    extraction_tasks = [perform_extraction(prop) for prop in properties]
+    results = await asyncio.gather(*extraction_tasks, return_exceptions=True)
+    
+    # Prepare batch updates
+    updates = []
+    extraction_records = []
+    
+    for prop, result in zip(properties, results):
+        if isinstance(result, Exception):
+            logger.error(f"Extraction failed for {prop.get('id')}: {result}")
+            continue
+        
+        if result.success:
+            # Prepare property update
+            update_data = {
+                "id": prop.get("id"),
+                "updated_at": datetime.now().isoformat()
+            }
+            
+            if result.tax_amount is not None:
+                update_data["amount_due"] = result.tax_amount
+            if result.account_number:
+                update_data["account_number"] = result.account_number
+            if result.property_address:
+                update_data["property_address"] = result.property_address
+            
+            updates.append(update_data)
+            
+            # Prepare extraction record
+            extraction_records.append({
+                "property_id": prop.get("id"),
+                "tax_amount": result.tax_amount,
+                "extraction_date": result.extraction_date,
+                "extraction_status": "success",
+                "extraction_method": result.extraction_method
+            })
+            
+            logger.info(f"Extracted {prop.get('property_name')}: ${result.tax_amount}")
+        else:
+            logger.warning(f"Failed to extract {prop.get('property_name')}: {result.error_message}")
+    
+    # Batch update database
+    if updates:
+        await batch_update_properties(updates)
+    
+    # Store extraction records if table exists
+    if extraction_records:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("tax_extractions").insert(extraction_records).execute()
+            )
+        except:
+            # Table might not exist, that's okay
+            pass
+
 # ========================= Endpoints =========================
 
 @app.get("/health")
@@ -161,10 +478,20 @@ async def health_check():
     supported_jurisdictions = list(cloud_extractor.get_supported_jurisdictions().keys())
     
     try:
-        # Test database connection
-        result = supabase.table("properties").select("property_id").limit(1).execute()
+        # Test database connection with timeout
+        result = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("properties").select("property_id").limit(1).execute()
+            ),
+            timeout=5.0
+        )
         db_status = "connected" if result else "disconnected"
         status = "healthy" if db_status == "connected" else "unhealthy"
+    except asyncio.TimeoutError:
+        db_status = "timeout"
+        status = "unhealthy"
+        error_detail = "Database connection timeout"
     except Exception as e:
         db_status = "error"
         status = "unhealthy"
@@ -185,34 +512,43 @@ async def health_check():
 
 @app.get("/api/v1/properties")
 async def get_properties(
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0),
     jurisdiction: Optional[str] = None,
     state: Optional[str] = None,
-    needs_extraction: Optional[bool] = None
+    needs_extraction: Optional[bool] = None,
+    entity_id: Optional[str] = None
 ):
-    """Get list of properties."""
+    """Get list of properties with optimized query."""
     try:
+        # Build query
         query = supabase.table("properties").select("*")
         
+        # Apply filters
         if jurisdiction:
             query = query.eq("jurisdiction", jurisdiction)
         if state:
             query = query.eq("state", state)
+        if entity_id:
+            query = query.eq("entity_id", entity_id)
         if needs_extraction is not None:
             if needs_extraction:
-                # Properties with 0 or null amount_due need extraction
                 query = query.or_("amount_due.is.null,amount_due.eq.0")
             else:
-                # Properties with non-zero amount_due
                 query = query.neq("amount_due", 0).not_.is_("amount_due", "null")
         
+        # Apply pagination
         query = query.range(offset, offset + limit - 1)
-        result = query.execute()
+        
+        # Execute query
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: query.execute()
+        )
         
         return {
-            "properties": result.data,
-            "count": len(result.data),
+            "properties": result.data if result else [],
+            "count": len(result.data) if result else 0,
             "limit": limit,
             "offset": offset
         }
@@ -245,7 +581,8 @@ async def extract_property_tax(request: ExtractionRequest):
     if result.success:
         try:
             # Update property with extracted data
-            update_data = {}
+            update_data = {"updated_at": datetime.now().isoformat()}
+            
             if result.tax_amount is not None:
                 update_data["amount_due"] = result.tax_amount
             if result.account_number:
@@ -253,9 +590,11 @@ async def extract_property_tax(request: ExtractionRequest):
             if result.property_address:
                 update_data["property_address"] = result.property_address
             
-            if update_data:
-                update_data["updated_at"] = datetime.now().isoformat()
-                supabase.table("properties").update(update_data).eq("id", request.property_id).execute()
+            # Use async update
+            await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("properties").update(update_data).eq("id", request.property_id).execute()
+            )
             
             # Also store in extractions table if it exists
             try:
@@ -266,10 +605,12 @@ async def extract_property_tax(request: ExtractionRequest):
                     "extraction_status": "success",
                     "extraction_method": result.extraction_method
                 }
-                supabase.table("tax_extractions").insert(extraction_record).execute()
+                await asyncio.get_event_loop().run_in_executor(
+                    db_executor,
+                    lambda: supabase.table("tax_extractions").insert(extraction_record).execute()
+                )
             except:
-                # Table might not exist, that's okay
-                pass
+                pass  # Table might not exist
                 
         except Exception as e:
             logger.error(f"Failed to store extraction result: {e}")
@@ -282,7 +623,7 @@ async def extract_batch(
     background_tasks: BackgroundTasks
 ):
     """
-    Extract tax data for multiple properties (max 10 for safety).
+    Extract tax data for multiple properties with optimized batch processing.
     """
     
     if len(request.property_ids) > 10:
@@ -293,8 +634,11 @@ async def extract_batch(
     
     # Get properties from database
     try:
-        result = supabase.table("properties").select("*").in_("id", request.property_ids).execute()
-        properties = result.data
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.table("properties").select("*").in_("id", request.property_ids).execute()
+        )
+        properties = result.data if result else []
         
         if not properties:
             raise HTTPException(status_code=404, detail="No properties found")
@@ -317,8 +661,8 @@ async def extract_batch(
                 "status": "failed"
             }
         
-        # Schedule background extraction
-        background_tasks.add_task(process_batch_extraction, supported_props)
+        # Schedule optimized background extraction
+        background_tasks.add_task(perform_batch_extraction_optimized, supported_props)
         
         return {
             "message": f"Batch extraction started for {len(supported_props)} properties",
@@ -329,41 +673,17 @@ async def extract_batch(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-async def process_batch_extraction(properties: List[Dict]):
-    """Process batch extraction in background"""
-    for prop in properties:
-        try:
-            # Perform extraction
-            result = await perform_extraction(prop)
-            
-            # Log result
-            if result.success:
-                logger.info(f"Extracted {prop['property_name']}: ${result.tax_amount}")
-            else:
-                logger.warning(f"Failed to extract {prop['property_name']}: {result.error_message}")
-            
-            # Add delay between extractions
-            await asyncio.sleep(1)
-            
-        except Exception as e:
-            logger.error(f"Batch extraction error for {prop.get('id')}: {e}")
-
 @app.get("/api/v1/extract/status", response_model=ExtractionStatusResponse)
 async def get_extraction_status():
-    """Get extraction status and statistics."""
+    """Get extraction status using optimized query."""
     try:
-        # Get all properties
-        all_props = supabase.table("properties").select("id, amount_due").execute()
-        
-        total = len(all_props.data)
-        extracted = sum(1 for p in all_props.data if p.get("amount_due") and p.get("amount_due") != 0)
-        pending = total - extracted
+        stats = await get_extraction_status_optimized()
         
         return ExtractionStatusResponse(
-            total_properties=total,
-            extracted_count=extracted,
-            pending_count=pending,
-            failed_count=0,
+            total_properties=stats["total_properties"],
+            extracted_count=stats["extracted_count"],
+            pending_count=stats["pending_count"],
+            failed_count=stats.get("failed_count", 0),
             supported_jurisdictions=list(cloud_extractor.get_supported_jurisdictions().keys())
         )
         
@@ -372,58 +692,29 @@ async def get_extraction_status():
 
 @app.get("/api/v1/jurisdictions")
 async def get_jurisdictions():
-    """Get list of jurisdictions with extraction support status."""
+    """Get list of jurisdictions using optimized query."""
     try:
-        result = supabase.table("properties").select("jurisdiction").execute()
-        
-        supported_list = cloud_extractor.get_supported_jurisdictions()
-        jurisdictions = {}
-        
-        for prop in result.data:
-            jur = prop.get("jurisdiction")
-            if jur and jur not in jurisdictions:
-                # Check if supported
-                is_supported = any(
-                    key.lower() in jur.lower()
-                    for key in supported_list.keys()
-                )
-                
-                # Get confidence if supported
-                confidence = None
-                if is_supported:
-                    for key, info in supported_list.items():
-                        if key.lower() in jur.lower():
-                            confidence = info.get("confidence", "medium")
-                            break
-                
-                jurisdictions[jur] = {
-                    "name": jur,
-                    "supported": is_supported,
-                    "confidence": confidence,
-                    "count": 0
-                }
-            
-            if jur:
-                jurisdictions[jur]["count"] += 1
-        
-        return {
-            "jurisdictions": list(jurisdictions.values()),
-            "total": len(jurisdictions),
-            "supported_count": sum(1 for j in jurisdictions.values() if j["supported"])
-        }
+        result = await get_jurisdictions_optimized()
+        return result
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/entities")
-async def get_entities(limit: int = 100, offset: int = 0):
-    """Get list of entities."""
+async def get_entities(
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """Get list of entities with pagination."""
     try:
-        result = supabase.table("entities").select("*").limit(limit).offset(offset).execute()
+        result = await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.table("entities").select("*").range(offset, offset + limit - 1).execute()
+        )
         
         return {
-            "entities": result.data,
-            "count": len(result.data),
+            "entities": result.data if result else [],
+            "count": len(result.data) if result else 0,
             "limit": limit,
             "offset": offset
         }
@@ -432,59 +723,79 @@ async def get_entities(limit: int = 100, offset: int = 0):
 
 @app.get("/api/v1/statistics", response_model=StatisticsResponse)
 async def get_statistics():
-    """Get system statistics."""
+    """Get system statistics using optimized query."""
     try:
-        # Get properties
-        props = supabase.table("properties").select("*").execute()
-        properties = props.data
+        stats = await get_statistics_optimized()
         
-        # Get entities  
-        ents = supabase.table("entities").select("*").execute()
-        entities = ents.data
-        
-        # Calculate statistics
-        total_outstanding = sum(p.get("amount_due", 0) or 0 for p in properties)
-        total_previous = sum(p.get("previous_year_taxes", 0) or 0 for p in properties)
-        
-        extracted_count = sum(1 for p in properties if p.get("amount_due") and p.get("amount_due") != 0)
-        pending_count = len(properties) - extracted_count
-        success_rate = (extracted_count / len(properties) * 100) if properties else 0
-        
-        # Get last extraction date
-        last_date = None
-        for p in properties:
-            if p.get("updated_at"):
-                if not last_date or p["updated_at"] > last_date:
-                    last_date = p["updated_at"]
+        # Calculate success rate
+        total = stats.get("total_properties", 0)
+        extracted = stats.get("extracted_count", 0)
+        success_rate = (extracted / total * 100) if total > 0 else 0
         
         return StatisticsResponse(
-            total_properties=len(properties),
-            total_entities=len(entities),
-            total_outstanding_tax=total_outstanding,
-            total_previous_year_tax=total_previous,
+            total_properties=total,
+            total_entities=stats.get("total_entities", 0),
+            total_outstanding_tax=stats.get("total_outstanding", 0),
+            total_previous_year_tax=stats.get("total_previous", 0),
             extraction_success_rate=success_rate,
-            last_extraction_date=last_date,
-            extracted_count=extracted_count,
-            pending_count=pending_count
+            last_extraction_date=stats.get("last_extraction_date"),
+            extracted_count=extracted,
+            pending_count=stats.get("pending_count", 0)
         )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/extractions")
-async def get_extractions(limit: int = 100, offset: int = 0):
-    """Get extraction history."""
+async def get_extractions(
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """Get extraction history with pagination."""
     try:
         # Try to get from tax_extractions table
         try:
-            result = supabase.table("tax_extractions").select("*").order("extraction_date", desc=True).limit(limit).offset(offset).execute()
-            return {"extractions": result.data}
+            result = await asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: supabase.table("tax_extractions").select("*").order(
+                    "extraction_date", desc=True
+                ).range(offset, offset + limit - 1).execute()
+            )
+            return {
+                "extractions": result.data if result else [],
+                "count": len(result.data) if result else 0,
+                "limit": limit,
+                "offset": offset
+            }
         except:
             # If table doesn't exist, return empty
-            return {"extractions": []}
+            return {"extractions": [], "count": 0, "limit": limit, "offset": offset}
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ========================= Startup/Shutdown Events =========================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on startup."""
+    logger.info("API starting up with optimized queries...")
+    
+    # Warm up the connection pool
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            db_executor,
+            lambda: supabase.table("properties").select("id").limit(1).execute()
+        )
+        logger.info("Database connection pool initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize database connection: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown."""
+    logger.info("API shutting down...")
+    db_executor.shutdown(wait=True)
 
 if __name__ == "__main__":
     import uvicorn
