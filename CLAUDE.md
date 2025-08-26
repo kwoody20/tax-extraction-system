@@ -31,10 +31,20 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ### Dashboard Layer
 - **streamlit_app.py**: Production dashboard deployed on Streamlit Cloud
-- **dashboard_supabase.py**: Local dashboard with Supabase integration
 - Real-time data visualization with Plotly charts
-- 5 tabs: Overview, Properties, Entities, Geographic Distribution, Tax Extraction
+- 5 tabs: Overview, Properties, Entities, Analytics, Tax Extraction
+- Entity-based filtering for properties
 - No CSV uploads needed - all data from Supabase
+
+#### Dashboard Properties Tab Fields
+- Property Name
+- Address
+- Jurisdiction
+- State
+- Tax Amount Due (including $0.00 and null values)
+- Due Date (color-coded by urgency)
+- Paid By (color-coded: Landlord/Tenant/Tenant to Reimburse)
+- Tax Bill URL
 
 ### Core Extraction Engine
 - **cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
@@ -70,8 +80,8 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ### Local Development
 ```bash
-# 1. Start API Service (with extraction)
-python api_public_with_extraction.py
+# 1. Start API Service
+python api_service_supabase.py
 
 # 2. Start Dashboard (in new terminal)
 streamlit run streamlit_app.py
@@ -120,17 +130,14 @@ python test_auth_flow.py
 
 ### Dashboard Operations
 ```bash
-# Start Streamlit dashboard with Supabase
-streamlit run dashboard_supabase.py
-
-# Original dashboard (if needed)
-streamlit run dashboard.py
+# Start Streamlit dashboard
+streamlit run streamlit_app.py
 ```
 
 ### Running Extractors
 ```bash
 # Master extraction system (recommended)
-python MASTER_TAX_EXTRACTOR.py csv/OFFICIAL-proptax-assets.csv --concurrent
+python MASTER_TAX_EXTRACTOR.py extraction-links-and-steps.xlsx --concurrent
 
 # Selenium-based extraction for Maricopa/Harris
 python selenium_tax_extractors.py
@@ -208,14 +215,21 @@ brew install chromedriver
 
 ## Input/Output Formats
 
-### Input Excel Columns
+### Input Excel Columns (extraction-links-and-steps.xlsx)
 - Property ID
 - Property Name
-- Property Address (optional)
+- Property Address
 - Jurisdiction
 - State
-- Acct Number (optional)  
+- Property Type
+- Close Date
+- Amount Due
+- Previous Year Taxes
+- Extraction Steps
+- Acct Number
+- Next Due Date
 - Tax Bill Link
+- Parent Entity
 
 ### Output Structure
 - Excel with multiple sheets (results, summary, validation, errors)
@@ -248,17 +262,17 @@ brew install chromedriver
   - Database: https://klscgjbachumeojhxyno.supabase.co
   - Production API: https://tax-extraction-system-production.up.railway.app
   - Local API: http://localhost:8000
-  - Local Dashboard: http://localhost:8502
+  - Local Dashboard: http://localhost:8501
 
 ### Current System Status
-- ✅ 102 properties loaded in database (95 with account numbers)
-- ✅ 43 entities configured
+- ✅ 102+ properties loaded in database
+- ✅ 43+ entities configured with hierarchy (Parent/Sub/Single-Property)
 - ✅ API service LIVE at https://tax-extraction-system-production.up.railway.app
-- ✅ Dashboard LIVE on Streamlit Cloud with 5 tabs including extraction
+- ✅ Dashboard LIVE on Streamlit Cloud with enhanced filtering
 - ✅ Cloud extraction engine integrated (8 supported jurisdictions)
-- ✅ Geographic distribution visualization added
-- ✅ $50,058.52 in outstanding taxes tracked
-- ✅ $434,291.55 in previous year taxes
+- ✅ Entity-based property filtering
+- ✅ Tax Bill URLs visible in dashboard
+- ✅ Enhanced Analytics tab with cross-analysis features
 
 ### Production API Endpoints
 - **Health**: https://tax-extraction-system-production.up.railway.app/health

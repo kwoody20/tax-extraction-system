@@ -232,7 +232,7 @@ def format_due_date(date_str):
         return date_str
 
 # Header with title and refresh controls
-col1, col2, col3 = st.columns([3, 1, 1])
+col1, col2 = st.columns([4, 1])
 with col1:
     st.title("🏢 Property Tax Dashboard")
     st.caption("Real-time monitoring of property tax data with enhanced analytics")
@@ -242,10 +242,6 @@ with col2:
         st.cache_data.clear()
         st.session_state.last_refresh = datetime.now()
         st.rerun()
-
-with col3:
-    refresh_time = st.session_state.last_refresh.strftime("%H:%M:%S")
-    st.metric("Last Refresh", refresh_time, label_visibility="visible")
 
 # Sidebar
 with st.sidebar:
@@ -275,11 +271,19 @@ with st.sidebar:
     # Filters Section
     st.header("🔍 Filters")
     
-    # Load properties for filter options
+    # Load properties and entities for filter options
     properties = fetch_properties()
+    entities = fetch_entities()
     
     if properties:
         df_props = pd.DataFrame(properties)
+        
+        # Entity Filter
+        if entities:
+            entity_options = ["All"] + sorted([e.get('entity_name', 'Unknown') for e in entities if e.get('entity_name')])
+            selected_entity = st.selectbox("🏢 Entity", entity_options, help="Filter properties by their associated entity")
+        else:
+            selected_entity = "All"
         
         # Paid By Filter
         if 'paid_by' in df_props.columns:
@@ -350,6 +354,18 @@ if properties:
         df['tax_due_date_dt'] = pd.to_datetime(df['tax_due_date'], errors='coerce')
     
     # Apply filters from sidebar
+    if 'selected_entity' in locals() and selected_entity != "All" and entities:
+        # Find the entity_id for the selected entity name
+        entity_id = None
+        for e in entities:
+            if e.get('entity_name') == selected_entity:
+                entity_id = e.get('entity_id')
+                break
+        
+        # Filter properties by entity_id
+        if entity_id and 'entity_id' in df.columns:
+            df = df[df['entity_id'] == entity_id]
+    
     if 'selected_paid_by' in locals() and selected_paid_by != "All":
         df = df[df['paid_by'] == selected_paid_by]
     
@@ -513,11 +529,19 @@ with tab2:
         # Select columns to display
         display_cols = ['property_name', 'property_address', 'jurisdiction', 'state']
         
+        # Add amount_due column if it exists
+        if 'amount_due' in display_df.columns:
+            display_cols.append('amount_due')
+        
         if 'tax_due_date_formatted' in display_df.columns:
             display_cols.append('tax_due_date_formatted')
         
         if 'paid_by_formatted' in display_df.columns:
             display_cols.append('paid_by_formatted')
+        
+        # Add tax_bill_link column if it exists
+        if 'tax_bill_link' in display_df.columns:
+            display_cols.append('tax_bill_link')
         
         # Rename columns for display
         rename_map = {
@@ -525,8 +549,10 @@ with tab2:
             'property_address': 'Address',
             'jurisdiction': 'Jurisdiction',
             'state': 'State',
+            'amount_due': 'Tax Amount Due',
             'tax_due_date_formatted': 'Due Date',
-            'paid_by_formatted': 'Paid By'
+            'paid_by_formatted': 'Paid By',
+            'tax_bill_link': 'Tax Bill URL'
         }
         
         display_df = display_df[display_cols].rename(columns=rename_map)
@@ -665,6 +691,10 @@ with tab3:
                             st.write(f"**Entity ID:** {entity.get('entity_id', 'N/A')}")
                             st.write(f"**Type:** {entity.get('entity_type', 'N/A')}")
                             st.write(f"**Property Count:** {entity.get('property_count', 0)}")
+                            # Display tax amount due
+                            amount_due = entity.get('amount_due', 0)
+                            if amount_due is not None:
+                                st.write(f"**Tax Amount Due:** ${amount_due:,.2f}")
                         
                         with col2:
                             st.write(f"**Created:** {entity.get('created_at', 'N/A')}")
@@ -690,6 +720,10 @@ with tab3:
                             st.write(f"**Entity ID:** {entity.get('entity_id', 'N/A')}")
                             st.write(f"**Type:** {entity.get('entity_type', 'N/A')}")
                             st.write(f"**Property Count:** {entity.get('property_count', 0)}")
+                            # Display tax amount due
+                            amount_due = entity.get('amount_due', 0)
+                            if amount_due is not None:
+                                st.write(f"**Tax Amount Due:** ${amount_due:,.2f}")
                         
                         with col2:
                             # Find parent entity name
@@ -709,12 +743,21 @@ with tab3:
             if single_property_entities:
                 # Display as a table for better overview
                 single_df = pd.DataFrame(single_property_entities)
-                display_cols = ['entity_name', 'entity_type', 'property_count', 'created_at']
+                display_cols = ['entity_name', 'entity_type', 'property_count', 'amount_due', 'created_at']
                 available_cols = [col for col in display_cols if col in single_df.columns]
                 
                 if available_cols:
+                    # Rename columns for better display
+                    column_rename = {
+                        'entity_name': 'Entity Name',
+                        'entity_type': 'Type',
+                        'property_count': 'Properties',
+                        'amount_due': 'Tax Amount Due',
+                        'created_at': 'Created At'
+                    }
+                    display_df = single_df[available_cols].rename(columns=column_rename)
                     st.dataframe(
-                        single_df[available_cols],
+                        display_df,
                         use_container_width=True,
                         hide_index=True
                     )
