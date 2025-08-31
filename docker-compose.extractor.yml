@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  tax-extractor-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.extractor
+    container_name: tax-extractor-ui
+    ports:
+      - "8001:8001"
+    environment:
+      # Supabase Configuration
+      - SUPABASE_URL=${SUPABASE_URL:-https://klscgjbachumeojhxyno.supabase.co}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      
+      # Extraction Configuration
+      - MAX_CONCURRENT_EXTRACTIONS=${MAX_CONCURRENT_EXTRACTIONS:-3}
+      - EXTRACTION_TIMEOUT=${EXTRACTION_TIMEOUT:-30000}
+      - HEADLESS_MODE=${HEADLESS_MODE:-true}
+      
+      # Chrome/Selenium Options
+      - CHROME_BIN=/usr/bin/google-chrome-stable
+      - CHROME_DRIVER_PATH=/usr/local/bin/chromedriver
+      
+      # Application Settings
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - API_PORT=8001
+      - PYTHONUNBUFFERED=1
+      
+    volumes:
+      # Persist logs
+      - ./logs:/app/logs
+      
+      # Mount extraction data if needed
+      - ./extraction_data:/app/extraction_data
+      
+      # Mount config files
+      - ./.env:/app/.env:ro
+      
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    
+    # Network configuration
+    networks:
+      - tax-extractor-network
+    
+    # Add shared memory size for Chrome
+    shm_size: '2gb'
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Redis for job queue persistence
+  redis:
+    image: redis:7-alpine
+    container_name: tax-extractor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - tax-extractor-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Optional: PostgreSQL for local development/testing
+  # (Remove if only using Supabase)
+  postgres:
+    image: postgres:15-alpine
+    container_name: tax-extractor-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-taxextractor}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-taxextractor123}
+      - POSTGRES_DB=${POSTGRES_DB:-tax_extraction}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    networks:
+      - tax-extractor-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: tax-extractor-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - tax-extractor-ui
+    restart: unless-stopped
+    networks:
+      - tax-extractor-network
+
+networks:
+  tax-extractor-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:

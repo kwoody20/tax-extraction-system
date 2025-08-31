@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Extractor Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: #f7fafc;
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.operational {
+            background: #48bb78;
+        }
+
+        .status-dot.degraded {
+            background: #ed8936;
+        }
+
+        .status-dot.offline {
+            background: #f56565;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #718096;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            color: #2d3748;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .stat-card .change {
+            color: #48bb78;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        .control-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-panel h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #4a5568;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .jobs-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .jobs-panel h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #718096;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .jobs-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .job-item {
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .job-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transform: translateX(2px);
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .job-title {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .job-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .job-status.queued {
+            background: #f7fafc;
+            color: #718096;
+        }
+
+        .job-status.running {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .job-status.completed {
+            background: #c6f6d5;
+            color: #276749;
+        }
+
+        .job-status.failed {
+            background: #fed7d7;
+            color: #9b2c2c;
+        }
+
+        .job-details {
+            display: flex;
+            gap: 20px;
+            color: #718096;
+            font-size: 13px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .notification.error {
+            border-left: 4px solid #f56565;
+        }
+
+        .notification.info {
+            border-left: 4px solid #4299e1;
+        }
+
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .ws-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #48bb78;
+        }
+
+        .ws-status.disconnected .dot {
+            background: #f56565;
+        }
+
+        /* Loading animation */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🏢 Tax Extractor Control Panel</h1>
+                <div class="ws-status" id="wsStatus">
+                    <div class="dot"></div>
+                    <span>Connecting...</span>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot operational" id="systemStatus"></div>
+                <span id="systemStatusText">Operational</span>
+            </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="dashboard">
+            <div class="stat-card">
+                <h3>Active Jobs</h3>
+                <div class="value" id="activeJobs">0</div>
+                <div class="change">Running now</div>
+            </div>
+            <div class="stat-card">
+                <h3>Queued</h3>
+                <div class="value" id="queuedJobs">0</div>
+                <div class="change">Waiting</div>
+            </div>
+            <div class="stat-card">
+                <h3>Completed Today</h3>
+                <div class="value" id="completedToday">0</div>
+                <div class="change">Success</div>
+            </div>
+            <div class="stat-card">
+                <h3>Average Time</h3>
+                <div class="value" id="avgDuration">0s</div>
+                <div class="change">Per extraction</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <h2>🎯 Start Extraction</h2>
+                
+                <div class="form-group">
+                    <label>Extraction Type</label>
+                    <select id="extractionType" onchange="updateExtractionForm()">
+                        <option value="property">Specific Properties</option>
+                        <option value="entity">By Entity</option>
+                        <option value="jurisdiction">By Jurisdiction</option>
+                    </select>
+                </div>
+
+                <div id="propertySelection" class="form-group">
+                    <label>Select Properties</label>
+                    <select id="propertySelect" multiple size="5">
+                        <option value="">Loading properties...</option>
+                    </select>
+                    <small style="color: #718096;">Hold Ctrl/Cmd to select multiple</small>
+                </div>
+
+                <div id="entitySelection" class="form-group" style="display: none;">
+                    <label>Select Entity</label>
+                    <select id="entitySelect">
+                        <option value="">Loading entities...</option>
+                    </select>
+                </div>
+
+                <div id="jurisdictionSelection" class="form-group" style="display: none;">
+                    <label>Select Jurisdiction</label>
+                    <select id="jurisdictionSelect">
+                        <option value="">Select jurisdiction...</option>
+                        <option value="Montgomery County">Montgomery County</option>
+                        <option value="Fort Bend County">Fort Bend County</option>
+                        <option value="Harris County">Harris County</option>
+                        <option value="Maricopa County">Maricopa County</option>
+                        <option value="Chambers County">Chambers County</option>
+                        <option value="Galveston County">Galveston County</option>
+                        <option value="Walker County">Walker County</option>
+                        <option value="Liberty County">Liberty County</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Extraction Method</label>
+                    <select id="extractionMethod">
+                        <option value="auto">Auto-detect</option>
+                        <option value="selenium">Selenium (JavaScript sites)</option>
+                        <option value="playwright">Playwright (Complex sites)</option>
+                        <option value="http">HTTP (Simple sites)</option>
+                    </select>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="saveToSupabase" checked>
+                    <label for="saveToSupabase">Save to Supabase</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="notifyComplete" checked>
+                    <label for="notifyComplete">Notify on completion</label>
+                </div>
+
+                <button class="btn btn-primary" onclick="startExtraction()">
+                    🚀 Start Extraction
+                </button>
+
+                <button class="btn btn-secondary" onclick="refreshData()">
+                    🔄 Refresh Data
+                </button>
+            </div>
+
+            <!-- Jobs Panel -->
+            <div class="jobs-panel">
+                <h2>📋 Extraction Jobs</h2>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('active')">Active</button>
+                    <button class="tab" onclick="switchTab('completed')">Completed</button>
+                    <button class="tab" onclick="switchTab('failed')">Failed</button>
+                </div>
+
+                <div class="jobs-list" id="jobsList">
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p>No active jobs</p>
+                        <p style="font-size: 12px; margin-top: 8px;">Start an extraction to see jobs here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let reconnectInterval = null;
+        let currentTab = 'active';
+        let allJobs = {
+            active: [],
+            completed: [],
+            failed: []
+        };
+
+        // Initialize WebSocket connection
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateWSStatus(true);
+                clearInterval(reconnectInterval);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateWSStatus(false);
+                reconnectInterval = setInterval(() => {
+                    console.log('Attempting to reconnect...');
+                    connectWebSocket();
+                }, 5000);
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'connected':
+                case 'status_update':
+                    updateSystemStatus(data.status);
+                    break;
+                case 'job_update':
+                    updateJobDisplay(data.job);
+                    break;
+            }
+        }
+
+        // Update WebSocket status indicator
+        function updateWSStatus(connected) {
+            const wsStatus = document.getElementById('wsStatus');
+            if (connected) {
+                wsStatus.innerHTML = '<div class="dot"></div><span>Connected</span>';
+                wsStatus.classList.remove('disconnected');
+            } else {
+                wsStatus.innerHTML = '<div class="dot"></div><span>Disconnected</span>';
+                wsStatus.classList.add('disconnected');
+            }
+        }
+
+        // Update system status
+        function updateSystemStatus(status) {
+            document.getElementById('activeJobs').textContent = status.active_jobs;
+            document.getElementById('queuedJobs').textContent = status.queued_jobs;
+            document.getElementById('completedToday').textContent = status.completed_today;
+            document.getElementById('avgDuration').textContent = Math.round(status.average_duration) + 's';
+            
+            const statusDot = document.getElementById('systemStatus');
+            const statusText = document.getElementById('systemStatusText');
+            
+            statusDot.className = `status-dot ${status.status}`;
+            statusText.textContent = status.status.charAt(0).toUpperCase() + status.status.slice(1);
+        }
+
+        // Update job display
+        function updateJobDisplay(job) {
+            // Update job in appropriate category
+            if (job.status === 'running' || job.status === 'queued') {
+                updateJobInList(allJobs.active, job);
+            } else if (job.status === 'completed') {
+                removeJobFromList(allJobs.active, job.job_id);
+                updateJobInList(allJobs.completed, job);
+            } else if (job.status === 'failed') {
+                removeJobFromList(allJobs.active, job.job_id);
+                updateJobInList(allJobs.failed, job);
+            }
+            
+            // Refresh display if on current tab
+            renderJobs();
+        }
+
+        // Update job in list
+        function updateJobInList(list, job) {
+            const index = list.findIndex(j => j.job_id === job.job_id);
+            if (index >= 0) {
+                list[index] = job;
+            } else {
+                list.unshift(job);
+            }
+        }
+
+        // Remove job from list
+        function removeJobFromList(list, jobId) {
+            const index = list.findIndex(j => j.job_id === jobId);
+            if (index >= 0) {
+                list.splice(index, 1);
+            }
+        }
+
+        // Render jobs list
+        function renderJobs() {
+            const jobsList = document.getElementById('jobsList');
+            const jobs = allJobs[currentTab];
+            
+            if (jobs.length === 0) {
+                jobsList.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p>No ${currentTab} jobs</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            jobsList.innerHTML = jobs.map(job => `
+                <div class="job-item">
+                    <div class="job-header">
+                        <div class="job-title">${job.property_name}</div>
+                        <div class="job-status ${job.status}">${job.status}</div>
+                    </div>
+                    <div class="job-details">
+                        <span>📍 ${job.jurisdiction}</span>
+                        <span>🔧 ${job.extraction_method || 'auto'}</span>
+                        ${job.duration_seconds ? `<span>⏱️ ${Math.round(job.duration_seconds)}s</span>` : ''}
+                    </div>
+                    ${job.status === 'running' ? `
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${job.progress || 0}%"></div>
+                        </div>
+                    ` : ''}
+                    ${job.error ? `<div style="color: #f56565; font-size: 12px; margin-top: 8px;">❌ ${job.error}</div>` : ''}
+                    ${job.result && job.result.amount_due ? `
+                        <div style="color: #48bb78; font-size: 14px; margin-top: 8px;">
+                            ✅ Amount Due: $${job.result.amount_due}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Switch tab
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderJobs();
+        }
+
+        // Update extraction form
+        function updateExtractionForm() {
+            const type = document.getElementById('extractionType').value;
+            document.getElementById('propertySelection').style.display = type === 'property' ? 'block' : 'none';
+            document.getElementById('entitySelection').style.display = type === 'entity' ? 'block' : 'none';
+            document.getElementById('jurisdictionSelection').style.display = type === 'jurisdiction' ? 'block' : 'none';
+        }
+
+        // Load properties
+        async function loadProperties() {
+            try {
+                const response = await fetch('/api/properties');
+                const properties = await response.json();
+                
+                const select = document.getElementById('propertySelect');
+                select.innerHTML = properties.map(p => 
+                    `<option value="${p.id}">${p.property_name} - ${p.jurisdiction}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load properties:', error);
+                showNotification('Failed to load properties', 'error');
+            }
+        }
+
+        // Load entities
+        async function loadEntities() {
+            try {
+                const response = await fetch('/api/entities');
+                const entities = await response.json();
+                
+                const select = document.getElementById('entitySelect');
+                select.innerHTML = '<option value="">Select entity...</option>' +
+                    entities.map(e => 
+                        `<option value="${e.id}">${e.entity_name} (${e.entity_type})</option>`
+                    ).join('');
+            } catch (error) {
+                console.error('Failed to load entities:', error);
+                showNotification('Failed to load entities', 'error');
+            }
+        }
+
+        // Start extraction
+        async function startExtraction() {
+            const type = document.getElementById('extractionType').value;
+            const method = document.getElementById('extractionMethod').value;
+            const saveToSupabase = document.getElementById('saveToSupabase').checked;
+            const notifyComplete = document.getElementById('notifyComplete').checked;
+            
+            let requestData = {
+                extraction_method: method,
+                save_to_supabase: saveToSupabase,
+                notify_on_complete: notifyComplete
+            };
+            
+            if (type === 'property') {
+                const selected = Array.from(document.getElementById('propertySelect').selectedOptions);
+                if (selected.length === 0) {
+                    showNotification('Please select at least one property', 'error');
+                    return;
+                }
+                requestData.property_ids = selected.map(opt => opt.value);
+            } else if (type === 'entity') {
+                const entityId = document.getElementById('entitySelect').value;
+                if (!entityId) {
+                    showNotification('Please select an entity', 'error');
+                    return;
+                }
+                requestData.entity_id = entityId;
+            } else if (type === 'jurisdiction') {
+                const jurisdiction = document.getElementById('jurisdictionSelect').value;
+                if (!jurisdiction) {
+                    showNotification('Please select a jurisdiction', 'error');
+                    return;
+                }
+                requestData.jurisdiction = jurisdiction;
+            }
+            
+            try {
+                const response = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(result.message, 'success');
+                    // Load jobs after starting extraction
+                    setTimeout(loadJobs, 500);
+                } else {
+                    showNotification(result.detail || 'Failed to start extraction', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to start extraction:', error);
+                showNotification('Failed to start extraction', 'error');
+            }
+        }
+
+        // Load jobs
+        async function loadJobs() {
+            try {
+                const response = await fetch('/api/jobs');
+                const data = await response.json();
+                
+                allJobs.active = data.active;
+                allJobs.completed = data.completed.filter(j => j.status === 'completed');
+                allJobs.failed = data.completed.filter(j => j.status === 'failed');
+                
+                renderJobs();
+            } catch (error) {
+                console.error('Failed to load jobs:', error);
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Refresh data
+        async function refreshData() {
+            showNotification('Refreshing data...', 'info');
+            await Promise.all([
+                loadProperties(),
+                loadEntities(),
+                loadJobs(),
+                fetch('/api/status').then(r => r.json()).then(updateSystemStatus)
+            ]);
+            showNotification('Data refreshed', 'success');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            loadProperties();
+            loadEntities();
+            loadJobs();
+            
+            // Refresh data every 30 seconds
+            setInterval(loadJobs, 30000);
+        });
+    </script>
+</body>
+</html>
