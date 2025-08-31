@@ -28,7 +28,10 @@ from dotenv import load_dotenv
 import logging
 
 # Import cloud extractor
-from cloud_extractor import extract_tax_cloud, cloud_extractor
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.extractors.cloud_extractor import extract_tax_cloud, cloud_extractor
 
 # Optional imports with graceful fallback
 try:

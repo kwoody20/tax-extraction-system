@@ -27,17 +27,20 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Import existing extractors
-from MASTER_TAX_EXTRACTOR import (
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.extractors.MASTER_TAX_EXTRACTOR import (
     PropertyTaxRecord,
     MasterExtractor,
     EXTRACTION_CONFIG
 )
-from selenium_tax_extractors import (
+from src.extractors.selenium_tax_extractors import (
     MaricopaCountyExtractor,
     HarrisCountyExtractor,
     TaxExtractionResult
 )
-from robust_tax_extractor import RobustTaxExtractor
+from src.extractors.robust_tax_extractor import RobustTaxExtractor
 
 # Load environment variables
 load_dotenv()

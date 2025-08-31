@@ -21,21 +21,20 @@ This is a comprehensive property tax extraction system with Supabase integration
 ## 📁 Key Architecture Components
 
 ### Database Layer (Supabase)
-- **supabase_client.py**: Database client with sync/async operations
-- **supabase_auth.py**: Authentication manager with JWT handling
+- **src/database/supabase_client.py**: Database client with sync/async operations
+- **src/database/supabase_auth.py**: Authentication manager with JWT handling
 - **supabase/migrations/**: SQL migration files for schema setup
 - PostgreSQL database with core tables: entities, properties, tax_extractions, jurisdictions, entity_relationships
 
 ### API Layer
-- **api_public.py**: Main production API deployed on Railway
+- **src/api/api_public.py**: Main production API deployed on Railway
 - FastAPI endpoints for properties, entities, extractions, and statistics
 - Optimized database queries with 40-60% performance improvement
 
 ### Dashboard Layer
-- **streamlit_app.py**: Production dashboard deployed on Streamlit Cloud
-- **streamlit_app_enhanced.py**: Enhanced version with additional features
-- **streamlit_utils.py**: Utility functions for dashboard operations
-- **streamlit_document_manager.py**: Document management interface
+- **src/dashboard/streamlit_app.py**: Production dashboard deployed on Streamlit Cloud
+- **src/dashboard/streamlit_utils.py**: Utility functions for dashboard operations
+- **src/dashboard/streamlit_document_manager.py**: Document management interface
 - Real-time data visualization with Plotly charts
 - Multiple tabs for Overview, Properties, Entities, Analytics, and Tax Extraction
 - Entity-based filtering for properties
@@ -52,23 +51,23 @@ This is a comprehensive property tax extraction system with Supabase integration
 - Tax Bill URL
 
 ### Core Extraction Engine
-- **cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
-- **cloud_extractor_enhanced.py**: Enhanced version with additional features
-- **MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
-- **robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic
-- **selenium_tax_extractors.py**: Browser-based extractors for complex sites (local only)
-- **nc_property_extractors.py**: Specialized extractors for North Carolina counties
-- **process_with_selenium.py**: Selenium-based processor for complex extractions
-- **local_extraction_suite.py**: Local extraction orchestration
+- **src/extractors/cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
+- **src/extractors/cloud_extractor_enhanced.py**: Enhanced version with additional features
+- **src/extractors/MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
+- **src/extractors/robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic
+- **src/extractors/selenium_tax_extractors.py**: Browser-based extractors for complex sites (local only)
+- **src/extractors/nc_property_extractors.py**: Specialized extractors for North Carolina counties
+- **src/extractors/process_with_selenium.py**: Selenium-based processor for complex extractions
+- **src/extractors/local_extraction_suite.py**: Local extraction orchestration
 - **Supported Cloud Jurisdictions**: Montgomery, Fort Bend, Chambers, Galveston, Aldine ISD, Goose Creek ISD, Spring Creek, Barbers Hill ISD
 
 ### Support Modules
-- **config.py**: Configuration management with environment variable support
-- **error_handling.py**: Retry logic, circuit breakers, and custom exception classes
-- **data_validation.py**: Data validation and sanitization for extracted tax data
-- **document_manager.py**: Document and file management utilities
-- **extractor_ui_service.py**: UI service for extraction management
-- **celery_queue.py**: Task queue for asynchronous processing
+- **src/utils/config.py**: Configuration management with environment variable support
+- **src/utils/error_handling.py**: Retry logic, circuit breakers, and custom exception classes
+- **src/utils/data_validation.py**: Data validation and sanitization for extracted tax data
+- **src/utils/document_manager.py**: Document and file management utilities
+- **src/api/extractor_ui_service.py**: UI service for extraction management
+- **src/api/celery_queue.py**: Task queue for asynchronous processing
 
 ### Data Flow
 1. Properties and entities stored in Supabase database
@@ -91,7 +90,7 @@ This is a comprehensive property tax extraction system with Supabase integration
 ### Local Development
 ```bash
 # 1. Start API Service
-python api_service_supabase.py
+python api_public.py
 
 # 2. Start Dashboard (in new terminal)
 streamlit run streamlit_app.py
@@ -113,10 +112,10 @@ streamlit run streamlit_app.py
 python api_public.py
 
 # Test Supabase authentication
-python supabase_auth.py test
+python src/database/supabase_auth.py test
 
 # Create test users
-python supabase_auth.py create-users
+python src/database/supabase_auth.py create-users
 ```
 
 ### Dashboard Operations
@@ -128,23 +127,30 @@ streamlit run streamlit_app.py
 ### Running Extractors
 ```bash
 # Master extraction system (recommended)
-python MASTER_TAX_EXTRACTOR.py extraction-links-and-steps.xlsx --concurrent
+python src/extractors/MASTER_TAX_EXTRACTOR.py extraction-links-and-steps.xlsx --concurrent
 
 # Selenium-based extraction for Maricopa/Harris
-python selenium_tax_extractors.py
+python src/extractors/selenium_tax_extractors.py
 
 # NC property extraction
-python process_with_selenium.py phase-two-taxes-8-17.xlsx --headless
+python src/extractors/process_with_selenium.py phase-two-taxes-8-17.xlsx --headless
 
 # Robust extraction with all features
-python robust_tax_extractor.py
+python src/extractors/robust_tax_extractor.py
 ```
 
 ### Testing
 ```bash
-# Test specific extractors
-python test_selenium_extractors.py
-python test_nc_extractors.py
+# Run all tests
+python -m pytest tests/
+
+# Test specific modules
+python tests/test_api_compatibility.py
+python tests/test_deployment_safety.py
+python tests/test_performance_improvements.py
+
+# Verify project structure
+python verify_structure.py
 ```
 
 ### Dependencies
@@ -233,7 +239,7 @@ brew install chromedriver
 - Process in batches for large datasets
 - Validate extracted data before use
 - Monitor circuit breaker states for failing domains
-- **Use MASTER_TAX_EXTRACTOR.py** as the primary extraction tool - it includes all the latest fixes
+- **Use src/extractors/MASTER_TAX_EXTRACTOR.py** as the primary extraction tool - it includes all the latest fixes
 - **Property vs Tax Validation**: Always verify amounts are taxes (1-3% of property value) not property values
 - **JavaScript Sites**: Use Playwright/Selenium extractors for dynamic content (Maricopa, Harris, some NC counties)
 
@@ -267,13 +273,15 @@ brew install chromedriver
 - **Jurisdictions**: https://tax-extraction-system-production.up.railway.app/api/v1/jurisdictions
 
 ### Key Documentation Files
-- **ARCHITECTURE_OVERVIEW.md**: System architecture details
-- **DEPLOYMENT_GUIDE.md**: Deployment instructions
-- **RAILWAY_DEPLOYMENT.md**: Railway-specific deployment guide
-- **DASHBOARD_ENHANCEMENTS.md**: Dashboard feature documentation
-- **EXTRACTOR_UI_README.md**: Extractor UI documentation
-- **LOCAL_EXTRACTION_README.md**: Local extraction guide
-- **NC_EXTRACTION_SUMMARY.md**: North Carolina extraction details
-- **SELENIUM_USAGE_GUIDE.md**: Selenium extractor usage
-- **TAX_EXTRACTION_GUIDE.md**: General extraction guide
+- **PROJECT_STRUCTURE.md**: Current project organization and structure
+- **DEPLOYMENT_CRITICAL.md**: Critical deployment patterns (root level)
+- **DEPLOYMENT_GUIDE.md**: Deployment instructions (root level)
+- **RAILWAY_DEPLOYMENT.md**: Railway-specific deployment guide (root level)
+- **docs/ARCHITECTURE_OVERVIEW.md**: System architecture details
+- **docs/DASHBOARD_ENHANCEMENTS.md**: Dashboard feature documentation
+- **docs/EXTRACTOR_UI_README.md**: Extractor UI documentation
+- **docs/LOCAL_EXTRACTION_README.md**: Local extraction guide
+- **docs/NC_EXTRACTION_SUMMARY.md**: North Carolina extraction details
+- **docs/SELENIUM_USAGE_GUIDE.md**: Selenium extractor usage
+- **docs/TAX_EXTRACTION_GUIDE.md**: General extraction guide
 - **supabase/README.md**: Database schema documentation

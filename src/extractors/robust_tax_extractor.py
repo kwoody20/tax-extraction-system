@@ -27,13 +27,16 @@ from pathlib import Path
 import hashlib
 
 # Import our custom modules
-from config import get_config, ScraperConfig
-from error_handling import (
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.utils.config import get_config, ScraperConfig
+from src.utils.error_handling import (
     retry_with_backoff, ErrorHandler, CircuitBreaker,
     NetworkError, ParseError, ValidationError, RateLimitError,
     safe_extract, validate_response
 )
-from data_validation import DataValidator, DataNormalizer
+from src.utils.data_validation import DataValidator, DataNormalizer
 
 # Configure logging with enhanced format
 logging.basicConfig(

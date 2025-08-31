@@ -11,7 +11,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 import argparse
 from typing import Dict, List, Optional
-from selenium_tax_extractors import UnifiedTaxExtractor
+from .selenium_tax_extractors import UnifiedTaxExtractor
 
 # Configure logging
 logging.basicConfig(

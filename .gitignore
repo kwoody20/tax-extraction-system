@@ -36,6 +36,7 @@ build/
 .claude/
 
 # Project specific
+.streamlit/
 *.xlsx
 *.xls
 *.csv
