@@ -25,7 +25,7 @@ celery -A celery_queue beat --loglevel=info --detach
 
 # Start FastAPI service
 echo "Starting FastAPI service..."
-uvicorn api_service:app --host 0.0.0.0 --port 8000 --reload &
+uvicorn api_public:app --host 0.0.0.0 --port 8000 --reload &
 
 # Wait for API to start
 sleep 3

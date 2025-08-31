@@ -10,7 +10,7 @@ pkill -f "streamlit run dashboard.py"
 
 # Stop FastAPI
 echo "Stopping FastAPI service..."
-pkill -f "uvicorn api_service:app"
+pkill -f "uvicorn api_public:app"
 
 # Stop Celery workers
 echo "Stopping Celery workers..."
