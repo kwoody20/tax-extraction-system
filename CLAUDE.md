@@ -9,10 +9,10 @@ This is a comprehensive property tax extraction system with Supabase integration
 ## 🏗️ System Architecture
 
 ### Core Components
-1. **Supabase Database**: PostgreSQL database hosting 102 properties and 43 entities with RLS policies
-2. **REST API**: FastAPI service with Supabase integration (`api_service_supabase.py`, `api_with_auth.py`)
-3. **Dashboard**: Streamlit interface with real-time data visualization (`dashboard_supabase.py`)
-4. **Extraction Engine**: Robust tax extraction with multiple methods
+1. **Supabase Database**: PostgreSQL database with properties and entities data
+2. **REST API**: FastAPI service deployed on Railway (`api_public.py`)
+3. **Dashboard**: Streamlit interface with real-time data visualization (`streamlit_app.py`)
+4. **Extraction Engine**: Multiple extractors including cloud-compatible and browser-based
 5. **Authentication**: Supabase Auth with JWT tokens
 
 ## 📁 Key Architecture Components
@@ -21,20 +21,22 @@ This is a comprehensive property tax extraction system with Supabase integration
 - **supabase_client.py**: Database client with sync/async operations
 - **supabase_auth.py**: Authentication manager with JWT handling
 - **supabase/migrations/**: SQL migration files for schema setup
-- PostgreSQL database with 5 core tables: entities, properties, tax_extractions, jurisdictions, entity_relationships
+- PostgreSQL database with core tables: entities, properties, tax_extractions, jurisdictions, entity_relationships
 
 ### API Layer
-- **api_service_supabase.py**: Main API with Supabase integration
-- **api_with_auth.py**: Enhanced API with full authentication
-- **api_service_enhanced.py**: Production-ready API with advanced features
+- **api_public.py**: Main production API deployed on Railway
 - FastAPI endpoints for properties, entities, extractions, and statistics
+- Optimized database queries with 40-60% performance improvement
 
 ### Dashboard Layer
 - **streamlit_app.py**: Production dashboard deployed on Streamlit Cloud
+- **streamlit_app_enhanced.py**: Enhanced version with additional features
+- **streamlit_utils.py**: Utility functions for dashboard operations
+- **streamlit_document_manager.py**: Document management interface
 - Real-time data visualization with Plotly charts
-- 5 tabs: Overview, Properties, Entities, Analytics, Tax Extraction
+- Multiple tabs for Overview, Properties, Entities, Analytics, and Tax Extraction
 - Entity-based filtering for properties
-- No CSV uploads needed - all data from Supabase
+- Direct Supabase integration - no CSV uploads needed
 
 #### Dashboard Properties Tab Fields
 - Property Name
@@ -48,17 +50,22 @@ This is a comprehensive property tax extraction system with Supabase integration
 
 ### Core Extraction Engine
 - **cloud_extractor.py**: Cloud-compatible HTTP-only extractor (deployed to production)
+- **cloud_extractor_enhanced.py**: Enhanced version with additional features
 - **MASTER_TAX_EXTRACTOR.py**: Advanced Playwright-based extractors (local only)
 - **robust_tax_extractor.py**: Main extraction engine with circuit breakers, retry logic
 - **selenium_tax_extractors.py**: Browser-based extractors for complex sites (local only)
+- **nc_property_extractors.py**: Specialized extractors for North Carolina counties
+- **process_with_selenium.py**: Selenium-based processor for complex extractions
+- **local_extraction_suite.py**: Local extraction orchestration
 - **Supported Cloud Jurisdictions**: Montgomery, Fort Bend, Chambers, Galveston, Aldine ISD, Goose Creek ISD, Spring Creek, Barbers Hill ISD
 
 ### Support Modules
 - **config.py**: Configuration management with environment variable support
 - **error_handling.py**: Retry logic, circuit breakers, and custom exception classes
 - **data_validation.py**: Data validation and sanitization for extracted tax data
-- **test_utilities.py**: Comprehensive testing framework
-- **tax_extractor_client.py**: Python SDK for API integration
+- **document_manager.py**: Document and file management utilities
+- **extractor_ui_service.py**: UI service for extraction management
+- **celery_queue.py**: Task queue for asynchronous processing
 
 ### Data Flow
 1. Properties and entities stored in Supabase database
@@ -91,41 +98,22 @@ streamlit run streamlit_app.py
 # Dashboard: http://localhost:8501
 ```
 
-### Database Credentials
+### Database Configuration
 - **Supabase URL**: https://klscgjbachumeojhxyno.supabase.co
-- **Current Data**: 102 properties, 43 entities
-- **Total Tax Liability**: $50,058.52 outstanding, $434,291.55 previous year
+- **Data Storage**: Properties and entities with tax extraction history
 
 ## Common Commands
 
-### Database Operations
+### API Operations
 ```bash
-# Import data from CSV to Supabase
-python import_data_to_supabase_fixed.py
+# Start production API (deployed version)
+python api_public.py
 
 # Test Supabase authentication
 python supabase_auth.py test
 
 # Create test users
 python supabase_auth.py create-users
-
-# Verify database data
-python verify_supabase_data.py
-```
-
-### API Operations
-```bash
-# Start API with Supabase integration
-python api_service_supabase.py
-
-# Start API with full authentication
-python api_with_auth.py
-
-# Test API endpoints
-python test_api_supabase.py
-
-# Test authentication flow
-python test_auth_flow.py
 ```
 
 ### Dashboard Operations
@@ -151,15 +139,6 @@ python robust_tax_extractor.py
 
 ### Testing
 ```bash
-# Run test suite
-python test_utilities.py
-
-# Test API with Supabase
-python test_api_supabase.py
-
-# Test authentication flow
-python test_auth_flow.py
-
 # Test specific extractors
 python test_selenium_extractors.py
 python test_nc_extractors.py
@@ -265,14 +244,13 @@ brew install chromedriver
   - Local Dashboard: http://localhost:8501
 
 ### Current System Status
-- ✅ 102+ properties loaded in database
-- ✅ 43+ entities configured with hierarchy (Parent/Sub/Single-Property)
 - ✅ API service LIVE at https://tax-extraction-system-production.up.railway.app
 - ✅ Dashboard LIVE on Streamlit Cloud with enhanced filtering
 - ✅ Cloud extraction engine integrated (8 supported jurisdictions)
 - ✅ Entity-based property filtering
 - ✅ Tax Bill URLs visible in dashboard
 - ✅ Enhanced Analytics tab with cross-analysis features
+- ✅ Optimized database queries with 40-60% performance improvement
 
 ### Production API Endpoints
 - **Health**: https://tax-extraction-system-production.up.railway.app/health
@@ -285,8 +263,14 @@ brew install chromedriver
 - **Extraction Status**: https://tax-extraction-system-production.up.railway.app/api/v1/extract/status
 - **Jurisdictions**: https://tax-extraction-system-production.up.railway.app/api/v1/jurisdictions
 
-### Key Files for Reference
-- **SUPABASE_AUTH_GUIDE.md**: Complete authentication setup
-- **DASHBOARD_GUIDE.md**: Dashboard usage instructions
+### Key Documentation Files
+- **ARCHITECTURE_OVERVIEW.md**: System architecture details
+- **DEPLOYMENT_GUIDE.md**: Deployment instructions
+- **RAILWAY_DEPLOYMENT.md**: Railway-specific deployment guide
+- **DASHBOARD_ENHANCEMENTS.md**: Dashboard feature documentation
+- **EXTRACTOR_UI_README.md**: Extractor UI documentation
+- **LOCAL_EXTRACTION_README.md**: Local extraction guide
+- **NC_EXTRACTION_SUMMARY.md**: North Carolina extraction details
+- **SELENIUM_USAGE_GUIDE.md**: Selenium extractor usage
+- **TAX_EXTRACTION_GUIDE.md**: General extraction guide
 - **supabase/README.md**: Database schema documentation
-- **SUPABASE_EMAIL_SETUP.md**: Email confirmation configuration
