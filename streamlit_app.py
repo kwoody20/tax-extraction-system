@@ -14,20 +14,26 @@ from datetime import datetime, timedelta
 import json
 from io import BytesIO
 import time
+import asyncio
+from typing import Optional, List, Dict, Any
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+import numpy as np
 
 st.set_page_config(
-    page_title="Tax Dashboard",
+    page_title="Tax Dashboard Pro",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         'Get Help': None,
         'Report a bug': None,
-        'About': None
+        'About': 'Enhanced Property Tax Dashboard v2.0 - Powered by Advanced Analytics'
     }
 )
 
-# Custom CSS for better styling - Hide hamburger menu
+# Enhanced Custom CSS for better styling with dark mode support
 st.markdown("""
 <style>
     /* Hide Streamlit branding and menu items */
@@ -88,6 +94,59 @@ st.markdown("""
         border-radius: 10px;
         padding: 10px;
     }
+    /* Enhanced UI Elements */
+    .bulk-action-checkbox {
+        margin-right: 10px;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+    .status-badge-new {
+        background-color: #ffd700;
+        color: #333;
+    }
+    .activity-feed {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+    }
+    .activity-item {
+        padding: 8px;
+        margin-bottom: 8px;
+        background-color: white;
+        border-radius: 4px;
+        border-left: 3px solid #1f77b4;
+    }
+    .loading-skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s ease-in-out infinite;
+    }
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    /* Dark mode styles */
+    .dark-mode {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    .dark-mode .stMetric {
+        background-color: #2a2a2a;
+    }
+    .dark-mode .activity-feed {
+        background-color: #2a2a2a;
+    }
+    .dark-mode .activity-item {
+        background-color: #333;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -97,25 +156,74 @@ try:
 except:
     API_URL = "https://tax-extraction-system-production.up.railway.app"
 
-# Initialize session state
+# Enhanced session state initialization
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = datetime.now()
 if 'properties_data' not in st.session_state:
     st.session_state.properties_data = None
 if 'stats_data' not in st.session_state:
     st.session_state.stats_data = None
+if 'selected_properties' not in st.session_state:
+    st.session_state.selected_properties = set()
+if 'bulk_edit_mode' not in st.session_state:
+    st.session_state.bulk_edit_mode = False
+if 'auto_refresh' not in st.session_state:
+    st.session_state.auto_refresh = False
+if 'refresh_interval' not in st.session_state:
+    st.session_state.refresh_interval = 30
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+if 'filter_presets' not in st.session_state:
+    st.session_state.filter_presets = {}
+if 'activity_log' not in st.session_state:
+    st.session_state.activity_log = []
+if 'extraction_progress' not in st.session_state:
+    st.session_state.extraction_progress = {}
+if 'cache_data' not in st.session_state:
+    st.session_state.cache_data = {}
+if 'last_webhook_check' not in st.session_state:
+    st.session_state.last_webhook_check = datetime.now()
+if 'notifications' not in st.session_state:
+    st.session_state.notifications = []
 
-# Cache data fetching functions
+# Enhanced cache data fetching functions with advanced filtering
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_properties():
-    """Fetch properties data from API with caching."""
+def fetch_properties(filters: Optional[Dict[str, Any]] = None, cursor: Optional[str] = None, limit: int = 100):
+    """Fetch properties data from API with advanced filtering and pagination."""
     try:
-        response = requests.get(f"{API_URL}/api/v1/properties", timeout=10)
+        params = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        if filters:
+            # Add advanced filters
+            if filters.get('jurisdiction'):
+                params['jurisdiction'] = filters['jurisdiction']
+            if filters.get('state'):
+                params['state'] = filters['state']
+            if filters.get('entity_id'):
+                params['entity_id'] = filters['entity_id']
+            if filters.get('amount_due_min') is not None:
+                params['amount_due_min'] = filters['amount_due_min']
+            if filters.get('amount_due_max') is not None:
+                params['amount_due_max'] = filters['amount_due_max']
+            if filters.get('due_date_before'):
+                params['due_date_before'] = filters['due_date_before']
+            if filters.get('due_date_after'):
+                params['due_date_after'] = filters['due_date_after']
+            if filters.get('needs_extraction') is not None:
+                params['needs_extraction'] = filters['needs_extraction']
+            if filters.get('sort_by'):
+                params['sort_by'] = filters['sort_by']
+            if filters.get('sort_order'):
+                params['sort_order'] = filters['sort_order']
+        
+        response = requests.get(f"{API_URL}/api/v1/properties", params=params, timeout=10)
         if response.status_code == 200:
-            return response.json().get("properties", [])
+            data = response.json()
+            return data.get("properties", []), data.get("next_cursor")
     except Exception as e:
         st.error(f"Error fetching properties: {e}")
-    return []
+    return [], None
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_statistics():
@@ -129,10 +237,13 @@ def fetch_statistics():
     return {}
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_entities():
-    """Fetch entities data from API with caching."""
+def fetch_entities(search: Optional[str] = None, limit: int = 100):
+    """Fetch entities data from API with search capability."""
     try:
-        response = requests.get(f"{API_URL}/api/v1/entities", timeout=10)
+        params = {"limit": limit}
+        if search:
+            params["search"] = search
+        response = requests.get(f"{API_URL}/api/v1/entities", params=params, timeout=10)
         if response.status_code == 200:
             return response.json().get("entities", [])
     except Exception as e:
@@ -197,6 +308,107 @@ def get_supported_jurisdictions():
     except Exception:
         return {}
 
+# New enhanced functions for advanced features
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def fetch_extraction_trends(days: int = 30, jurisdiction: Optional[str] = None):
+    """Fetch extraction trends from API."""
+    try:
+        params = {"days": days}
+        if jurisdiction:
+            params["jurisdiction"] = jurisdiction
+        response = requests.get(f"{API_URL}/api/v1/analytics/trends", params=params, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Error fetching trends: {e}")
+    return {}
+
+@st.cache_data(ttl=60)
+def fetch_property_history(property_id: str, limit: int = 10):
+    """Fetch extraction history for a specific property."""
+    try:
+        response = requests.get(
+            f"{API_URL}/api/v1/properties/{property_id}/history",
+            params={"limit": limit},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Error fetching property history: {e}")
+    return {}
+
+def bulk_update_properties(updates: List[Dict[str, Any]]):
+    """Perform bulk update of properties."""
+    try:
+        response = requests.put(
+            f"{API_URL}/api/v1/properties/bulk",
+            json={"updates": updates, "validate": True},
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"success": False, "message": f"API returned {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+def clear_api_cache(pattern: Optional[str] = None):
+    """Clear API cache."""
+    try:
+        params = {}
+        if pattern:
+            params["pattern"] = pattern
+        response = requests.delete(
+            f"{API_URL}/api/v1/cache/clear",
+            params=params,
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+def register_webhook(webhook_url: str, events: List[str]):
+    """Register webhook for notifications."""
+    try:
+        response = requests.post(
+            f"{API_URL}/api/v1/webhooks/register",
+            json={"webhook_url": webhook_url, "events": events},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+# Helper functions for enhanced UI
+def add_activity_log(message: str, type: str = "info"):
+    """Add entry to activity log."""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "message": message,
+        "type": type
+    }
+    st.session_state.activity_log.insert(0, entry)
+    # Keep only last 100 entries
+    st.session_state.activity_log = st.session_state.activity_log[:100]
+
+def format_amount_with_color(amount: float) -> str:
+    """Format amount with color based on value."""
+    if amount is None or amount == 0:
+        return "-"
+    color = "red" if amount > 10000 else "orange" if amount > 5000 else "green"
+    return f'<span style="color: {color}; font-weight: bold;">${amount:,.2f}</span>'
+
+def create_loading_skeleton(rows: int = 5, cols: int = 5):
+    """Create loading skeleton for better UX."""
+    skeleton_data = pd.DataFrame(
+        np.full((rows, cols), "Loading..."),
+        columns=[f"Col{i}" for i in range(cols)]
+    )
+    return skeleton_data
+
 def format_paid_by(value):
     """Format paid_by field with color coding."""
     if pd.isna(value) or value == "":
@@ -231,17 +443,62 @@ def format_due_date(date_str):
     except:
         return date_str
 
-# Header with title and refresh controls
-col1, col2 = st.columns([4, 1])
-with col1:
-    st.title("🏢 Property Tax Dashboard")
-    st.caption("Real-time monitoring of property tax data with enhanced analytics")
+# Apply dark mode if enabled
+if st.session_state.dark_mode:
+    st.markdown('<style>body { background-color: #1a1a1a; color: #ffffff; }</style>', unsafe_allow_html=True)
 
-with col2:
-    if st.button("🔄 Refresh Data", use_container_width=True, type="primary"):
+# Header with enhanced controls
+header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1, 1, 1])
+with header_col1:
+    st.title("🏢 Property Tax Dashboard Pro")
+    st.caption(f"Real-time monitoring with advanced analytics | Last refresh: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+
+with header_col2:
+    # Auto-refresh toggle
+    auto_refresh = st.toggle("Auto-Refresh", value=st.session_state.auto_refresh, key="auto_refresh_toggle")
+    if auto_refresh != st.session_state.auto_refresh:
+        st.session_state.auto_refresh = auto_refresh
+        if auto_refresh:
+            add_activity_log("Auto-refresh enabled", "info")
+    
+    if st.session_state.auto_refresh:
+        refresh_interval = st.select_slider(
+            "Interval (sec)",
+            options=[10, 30, 60, 120, 300],
+            value=st.session_state.refresh_interval,
+            key="refresh_interval_slider"
+        )
+        st.session_state.refresh_interval = refresh_interval
+
+with header_col3:
+    # Dark mode toggle
+    dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
+    if dark_mode != st.session_state.dark_mode:
+        st.session_state.dark_mode = dark_mode
+        st.rerun()
+
+with header_col4:
+    if st.button("🔄 Refresh Now", use_container_width=True, type="primary"):
         st.cache_data.clear()
         st.session_state.last_refresh = datetime.now()
+        add_activity_log("Manual refresh triggered", "info")
         st.rerun()
+
+# Auto-refresh implementation
+if st.session_state.auto_refresh:
+    time_since_refresh = (datetime.now() - st.session_state.last_refresh).seconds
+    if time_since_refresh >= st.session_state.refresh_interval:
+        st.cache_data.clear()
+        st.session_state.last_refresh = datetime.now()
+        add_activity_log(f"Auto-refresh executed (interval: {st.session_state.refresh_interval}s)", "info")
+        st.rerun()
+
+# Notification banner for new updates
+if st.session_state.notifications:
+    latest_notification = st.session_state.notifications[0]
+    st.info(f"🔔 {latest_notification['message']}")
+    if st.button("Dismiss", key="dismiss_notification"):
+        st.session_state.notifications.pop(0)
 
 # Sidebar
 with st.sidebar:
@@ -268,45 +525,103 @@ with st.sidebar:
     
     st.divider()
     
-    # Filters Section
-    st.header("🔍 Filters")
+    # Enhanced Filters Section
+    st.header("🔍 Advanced Filters")
     
-    # Load properties and entities for filter options
-    properties = fetch_properties()
+    # Load initial data for filter options
+    properties, _ = fetch_properties(limit=1000)  # Get more for filter options
     entities = fetch_entities()
+    
+    # Filter Presets
+    with st.expander("📌 Filter Presets", expanded=False):
+        preset_col1, preset_col2 = st.columns([2, 1])
+        with preset_col1:
+            preset_names = list(st.session_state.filter_presets.keys())
+            if preset_names:
+                selected_preset = st.selectbox("Load Preset", ["None"] + preset_names)
+                if selected_preset != "None" and st.button("Load", key="load_preset"):
+                    preset = st.session_state.filter_presets[selected_preset]
+                    # Apply preset filters
+                    for key, value in preset.items():
+                        st.session_state[f"filter_{key}"] = value
+                    add_activity_log(f"Loaded filter preset: {selected_preset}", "info")
+                    st.rerun()
+        
+        with preset_col2:
+            if st.button("Save Current", key="save_preset"):
+                preset_name = st.text_input("Preset Name", key="preset_name_input")
+                if preset_name:
+                    # Save current filters
+                    current_filters = {}
+                    for key in st.session_state:
+                        if key.startswith("filter_"):
+                            current_filters[key.replace("filter_", "")] = st.session_state[key]
+                    st.session_state.filter_presets[preset_name] = current_filters
+                    st.success(f"Saved preset: {preset_name}")
+                    add_activity_log(f"Saved filter preset: {preset_name}", "success")
     
     if properties:
         df_props = pd.DataFrame(properties)
         
-        # Entity Filter
+        # Entity Filter with Search
         if entities:
-            entity_options = ["All"] + sorted([e.get('entity_name', 'Unknown') for e in entities if e.get('entity_name')])
-            selected_entity = st.selectbox("🏢 Entity", entity_options, help="Filter properties by their associated entity")
+            st.subheader("🏢 Entity Filter")
+            entity_search = st.text_input("Search entities...", key="entity_search")
+            entity_options = ["All"] + sorted([e.get('entity_name', 'Unknown') for e in entities 
+                                             if e.get('entity_name') and (not entity_search or entity_search.lower() in e.get('entity_name', '').lower())])
+            selected_entity = st.selectbox("Select Entity", entity_options, key="filter_entity")
         else:
             selected_entity = "All"
+        
+        # Advanced Amount Range Filter
+        st.subheader("💰 Amount Range")
+        if 'amount_due' in df_props.columns:
+            amounts = df_props['amount_due'].dropna()
+            if not amounts.empty:
+                min_amount = float(amounts.min())
+                max_amount = float(amounts.max())
+                
+                amount_range = st.slider(
+                    "Tax Amount Due Range",
+                    min_value=min_amount,
+                    max_value=max_amount,
+                    value=(min_amount, max_amount),
+                    format="$%.2f",
+                    key="filter_amount_range"
+                )
+            else:
+                amount_range = (0.0, 50000.0)
+        else:
+            amount_range = (0.0, 50000.0)
+        
+        # Multi-select Jurisdiction Filter
+        st.subheader("🏛️ Jurisdictions")
+        if 'jurisdiction' in df_props.columns:
+            jurisdiction_options = sorted(df_props['jurisdiction'].dropna().unique().tolist())
+            selected_jurisdictions = st.multiselect(
+                "Select Jurisdictions",
+                options=jurisdiction_options,
+                default=None,
+                key="filter_jurisdictions"
+            )
+        else:
+            selected_jurisdictions = []
         
         # Paid By Filter
         if 'paid_by' in df_props.columns:
             paid_by_options = ["All"] + sorted(df_props['paid_by'].dropna().unique().tolist())
-            selected_paid_by = st.selectbox("💰 Paid By", paid_by_options)
+            selected_paid_by = st.selectbox("💳 Paid By", paid_by_options, key="filter_paid_by")
         else:
             selected_paid_by = "All"
         
         # State Filter
         if 'state' in df_props.columns:
             state_options = ["All"] + sorted(df_props['state'].dropna().unique().tolist())
-            selected_state = st.selectbox("📍 State", state_options)
+            selected_state = st.selectbox("📍 State", state_options, key="filter_state")
         else:
             selected_state = "All"
         
-        # Jurisdiction Filter
-        if 'jurisdiction' in df_props.columns:
-            jurisdiction_options = ["All"] + sorted(df_props['jurisdiction'].dropna().unique().tolist())
-            selected_jurisdiction = st.selectbox("🏛️ Jurisdiction", jurisdiction_options, key="jurisdiction_filter")
-        else:
-            selected_jurisdiction = "All"
-        
-        # Due Date Range Filter
+        # Enhanced Due Date Range Filter
         st.subheader("📅 Due Date Range")
         
         if 'tax_due_date' in df_props.columns:
@@ -324,7 +639,8 @@ with st.sidebar:
                     value=(min_date, max_date),
                     min_value=min_date,
                     max_value=max_date,
-                    format="MM/DD/YYYY"
+                    format="MM/DD/YYYY",
+                    key="filter_date_range"
                 )
             else:
                 date_range = None
@@ -333,19 +649,80 @@ with st.sidebar:
         
         # Quick Filters
         st.subheader("⚡ Quick Filters")
-        show_overdue = st.checkbox("Show Overdue Only", value=False)
-        show_upcoming_30 = st.checkbox("Due in Next 30 Days", value=False)
+        show_overdue = st.checkbox("Show Overdue Only", value=False, key="filter_overdue")
+        show_upcoming_30 = st.checkbox("Due in Next 30 Days", value=False, key="filter_upcoming_30")
+        needs_extraction = st.checkbox("Needs Extraction", value=False, key="filter_needs_extraction")
+        
+        # Sorting Options
+        st.subheader("↕️ Sorting")
+        sort_col1, sort_col2 = st.columns(2)
+        with sort_col1:
+            sort_by = st.selectbox(
+                "Sort By",
+                options=["property_name", "amount_due", "tax_due_date", "jurisdiction", "state"],
+                key="filter_sort_by"
+            )
+        with sort_col2:
+            sort_order = st.selectbox(
+                "Order",
+                options=["asc", "desc"],
+                format_func=lambda x: "Ascending ↑" if x == "asc" else "Descending ↓",
+                key="filter_sort_order"
+            )
 
 # Main content with enhanced tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🏢 Properties", "👥 Entities", "📈 Analytics", "🔄 Tax Extraction"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "📊 Overview", 
+    "🏢 Properties", 
+    "👥 Entities", 
+    "📈 Analytics", 
+    "🔄 Tax Extraction",
+    "📈 Trends & Insights",
+    "⚙️ Admin Tools",
+    "📋 Activity Log"
+])
 
-# Load data once for all tabs
+# Build filter parameters from sidebar selections
+filter_params = {}
+if 'filter_entity' in st.session_state and st.session_state.filter_entity != "All":
+    # Find entity_id for selected entity
+    for e in entities:
+        if e.get('entity_name') == st.session_state.filter_entity:
+            filter_params['entity_id'] = e.get('entity_id')
+            break
+
+if 'filter_jurisdictions' in st.session_state and st.session_state.filter_jurisdictions:
+    # API supports single jurisdiction, so take first if multiple selected
+    filter_params['jurisdiction'] = st.session_state.filter_jurisdictions[0]
+
+if 'filter_state' in st.session_state and st.session_state.filter_state != "All":
+    filter_params['state'] = st.session_state.filter_state
+
+if 'filter_amount_range' in st.session_state:
+    filter_params['amount_due_min'] = st.session_state.filter_amount_range[0]
+    filter_params['amount_due_max'] = st.session_state.filter_amount_range[1]
+
+if 'filter_date_range' in st.session_state and st.session_state.filter_date_range:
+    if len(st.session_state.filter_date_range) == 2:
+        filter_params['due_date_after'] = st.session_state.filter_date_range[0].isoformat()
+        filter_params['due_date_before'] = st.session_state.filter_date_range[1].isoformat()
+
+if 'filter_needs_extraction' in st.session_state:
+    filter_params['needs_extraction'] = st.session_state.filter_needs_extraction
+
+if 'filter_sort_by' in st.session_state:
+    filter_params['sort_by'] = st.session_state.filter_sort_by
+
+if 'filter_sort_order' in st.session_state:
+    filter_params['sort_order'] = st.session_state.filter_sort_order
+
+# Load data with filters
 with st.spinner("Loading data..."):
-    properties = fetch_properties()
+    properties, next_cursor = fetch_properties(filters=filter_params, limit=500)
     stats = fetch_statistics()
     entities = fetch_entities()
 
-# Apply filters if data is available
+# Apply additional client-side filters if needed
 if properties:
     df = pd.DataFrame(properties)
     
@@ -511,8 +888,66 @@ with tab2:
     st.header("🏢 Properties Detail")
     
     if not df.empty:
+        # Bulk operations toolbar
+        bulk_col1, bulk_col2, bulk_col3, bulk_col4 = st.columns([1, 2, 2, 2])
+        
+        with bulk_col1:
+            bulk_mode = st.checkbox("Bulk Edit Mode", key="bulk_edit_toggle")
+            st.session_state.bulk_edit_mode = bulk_mode
+        
+        with bulk_col2:
+            if st.session_state.bulk_edit_mode:
+                if st.button("Select All", key="select_all_btn"):
+                    st.session_state.selected_properties = set(df['property_id'].tolist())
+                    add_activity_log(f"Selected all {len(df)} properties", "info")
+                    st.rerun()
+                
+                if st.button("Clear Selection", key="clear_selection_btn"):
+                    st.session_state.selected_properties = set()
+                    add_activity_log("Cleared property selection", "info")
+                    st.rerun()
+        
+        with bulk_col3:
+            if st.session_state.bulk_edit_mode and st.session_state.selected_properties:
+                st.write(f"Selected: {len(st.session_state.selected_properties)} properties")
+                
+                # Bulk update paid_by
+                new_paid_by = st.selectbox(
+                    "Update Paid By",
+                    options=["No Change", "Landlord", "Tenant", "Tenant to Reimburse"],
+                    key="bulk_paid_by"
+                )
+                
+                if new_paid_by != "No Change" and st.button("Apply Update", key="apply_bulk_update"):
+                    updates = [
+                        {"id": prop_id, "paid_by": new_paid_by}
+                        for prop_id in st.session_state.selected_properties
+                    ]
+                    result = bulk_update_properties(updates)
+                    if result.get("success", False) or result.get("count"):
+                        st.success(f"Updated {len(updates)} properties")
+                        add_activity_log(f"Bulk updated paid_by for {len(updates)} properties", "success")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"Update failed: {result.get('message', 'Unknown error')}")
+        
+        with bulk_col4:
+            if st.session_state.bulk_edit_mode and st.session_state.selected_properties:
+                if st.button("🚀 Extract Selected", key="bulk_extract_btn", type="primary"):
+                    selected_ids = list(st.session_state.selected_properties)
+                    if len(selected_ids) <= 10:
+                        result = trigger_batch_extraction(selected_ids)
+                        if result.get("status") == "processing":
+                            st.success(f"Started extraction for {len(selected_ids)} properties")
+                            add_activity_log(f"Triggered batch extraction for {len(selected_ids)} properties", "success")
+                        else:
+                            st.error(f"Extraction failed: {result.get('message', 'Unknown error')}")
+                    else:
+                        st.warning("Please select 10 or fewer properties for batch extraction")
+        
         # Display summary
-        st.info(f"Showing {len(df)} properties based on current filters")
+        st.info(f"Showing {len(df)} properties based on current filters | Next cursor: {'Available' if next_cursor else 'End of results'}")
         
         # Prepare display dataframe
         display_df = df.copy()
@@ -526,39 +961,119 @@ with tab2:
         if 'paid_by' in display_df.columns:
             display_df['paid_by_formatted'] = display_df['paid_by'].apply(format_paid_by)
         
-        # Select columns to display
-        display_cols = ['property_name', 'property_address', 'jurisdiction', 'state']
-        
-        # Add amount_due column if it exists
-        if 'amount_due' in display_df.columns:
-            display_cols.append('amount_due')
-        
-        if 'tax_due_date_formatted' in display_df.columns:
-            display_cols.append('tax_due_date_formatted')
-        
-        if 'paid_by_formatted' in display_df.columns:
-            display_cols.append('paid_by_formatted')
-        
-        # Add tax_bill_link column if it exists
-        if 'tax_bill_link' in display_df.columns:
-            display_cols.append('tax_bill_link')
-        
-        # Rename columns for display
-        rename_map = {
-            'property_name': 'Property Name',
-            'property_address': 'Address',
-            'jurisdiction': 'Jurisdiction',
-            'state': 'State',
-            'amount_due': 'Tax Amount Due',
-            'tax_due_date_formatted': 'Due Date',
-            'paid_by_formatted': 'Paid By',
-            'tax_bill_link': 'Tax Bill URL'
-        }
-        
-        display_df = display_df[display_cols].rename(columns=rename_map)
-        
-        # Display with HTML for formatting
-        st.write(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+        # Enhanced property display with bulk selection
+        if st.session_state.bulk_edit_mode:
+            # Display properties with checkboxes
+            st.subheader("Select Properties for Bulk Operations")
+            
+            # Create a container for scrollable property list
+            with st.container():
+                for idx, row in display_df.iterrows():
+                    col1, col2 = st.columns([1, 9])
+                    
+                    with col1:
+                        # Checkbox for selection
+                        prop_id = df.iloc[idx]['property_id']
+                        is_selected = prop_id in st.session_state.selected_properties
+                        
+                        if st.checkbox("", value=is_selected, key=f"select_{prop_id}"):
+                            st.session_state.selected_properties.add(prop_id)
+                        else:
+                            st.session_state.selected_properties.discard(prop_id)
+                    
+                    with col2:
+                        # Property details with enhanced formatting
+                        property_html = f"""
+                        <div style="padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px;">
+                            <strong>{row.get('property_name', 'N/A')}</strong><br>
+                            📍 {row.get('property_address', 'N/A')}<br>
+                            🏛️ {row.get('jurisdiction', 'N/A')} | 📍 {row.get('state', 'N/A')}<br>
+                            💰 Amount: {format_amount_with_color(row.get('amount_due', 0))}<br>
+                            📅 Due: {row.get('tax_due_date_formatted', 'N/A')}<br>
+                            💳 Paid By: {row.get('paid_by_formatted', 'N/A')}
+                        </div>
+                        """
+                        st.markdown(property_html, unsafe_allow_html=True)
+        else:
+            # Standard table display
+            # Select columns to display
+            display_cols = ['property_name', 'property_address', 'jurisdiction', 'state']
+            
+            # Add amount_due column if it exists
+            if 'amount_due' in display_df.columns:
+                display_cols.append('amount_due')
+            
+            if 'tax_due_date_formatted' in display_df.columns:
+                display_cols.append('tax_due_date_formatted')
+            
+            if 'paid_by_formatted' in display_df.columns:
+                display_cols.append('paid_by_formatted')
+            
+            # Add tax_bill_link column if it exists
+            if 'tax_bill_link' in display_df.columns:
+                display_cols.append('tax_bill_link')
+            
+            # Rename columns for display
+            rename_map = {
+                'property_name': 'Property Name',
+                'property_address': 'Address',
+                'jurisdiction': 'Jurisdiction',
+                'state': 'State',
+                'amount_due': 'Tax Amount Due',
+                'tax_due_date_formatted': 'Due Date',
+                'paid_by_formatted': 'Paid By',
+                'tax_bill_link': 'Tax Bill URL'
+            }
+            
+            display_df_renamed = display_df[display_cols].rename(columns=rename_map)
+            
+            # Display with enhanced data editor for inline editing
+            edited_df = st.data_editor(
+                display_df_renamed,
+                hide_index=True,
+                use_container_width=True,
+                disabled=["Property Name", "Address", "Jurisdiction", "State", "Tax Bill URL"],
+                column_config={
+                    "Tax Amount Due": st.column_config.NumberColumn(
+                        "Tax Amount Due",
+                        format="$%.2f",
+                        min_value=0,
+                        max_value=100000
+                    ),
+                    "Due Date": st.column_config.Column(
+                        "Due Date",
+                        help="Tax payment due date"
+                    ),
+                    "Tax Bill URL": st.column_config.LinkColumn(
+                        "Tax Bill URL",
+                        help="Click to view tax bill"
+                    )
+                }
+            )
+            
+            # Check for changes and update if needed
+            if not display_df_renamed.equals(edited_df):
+                st.info("⚠️ You have unsaved changes. Click 'Save Changes' to apply.")
+                if st.button("💾 Save Changes", key="save_inline_edits"):
+                    # Prepare updates from edited data
+                    updates = []
+                    for idx, row in edited_df.iterrows():
+                        original_row = display_df_renamed.iloc[idx]
+                        if not row.equals(original_row):
+                            update = {"id": df.iloc[idx]['property_id']}
+                            if row.get('Paid By') != original_row.get('Paid By'):
+                                update['paid_by'] = row['Paid By']
+                            updates.append(update)
+                    
+                    if updates:
+                        result = bulk_update_properties(updates)
+                        if result.get("success", False) or result.get("count"):
+                            st.success(f"Updated {len(updates)} properties")
+                            add_activity_log(f"Updated {len(updates)} properties via inline editing", "success")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error(f"Update failed: {result.get('message', 'Unknown error')}")
         
         # Export options
         st.divider()
@@ -1219,6 +1734,393 @@ with tab5:
     else:
         st.error("❌ Could not connect to extraction service. Please check API connection.")
         st.info("API URL: " + API_URL)
+
+# Tab 6: Trends & Insights
+with tab6:
+    st.header("📈 Trends & Insights")
+    
+    # Trend period selector
+    trend_col1, trend_col2, trend_col3 = st.columns([2, 2, 1])
+    
+    with trend_col1:
+        trend_days = st.select_slider(
+            "Analysis Period",
+            options=[7, 14, 30, 60, 90, 180, 365],
+            value=30,
+            format_func=lambda x: f"{x} days",
+            key="trend_days"
+        )
+    
+    with trend_col2:
+        trend_jurisdiction = st.selectbox(
+            "Filter by Jurisdiction",
+            options=["All"] + (selected_jurisdictions if 'selected_jurisdictions' in locals() else []),
+            key="trend_jurisdiction"
+        )
+    
+    with trend_col3:
+        if st.button("🔄 Refresh Trends", key="refresh_trends"):
+            st.cache_data.clear()
+            add_activity_log("Refreshed trend analysis", "info")
+    
+    # Fetch trend data
+    trends_data = fetch_extraction_trends(
+        days=trend_days,
+        jurisdiction=None if trend_jurisdiction == "All" else trend_jurisdiction
+    )
+    
+    if trends_data and trends_data.get("trends"):
+        # Extraction Success Trends
+        st.subheader("📊 Extraction Success Trends")
+        
+        trends_df = pd.DataFrame(trends_data["trends"])
+        trends_df['date'] = pd.to_datetime(trends_df['date'])
+        trends_df['total'] = trends_df['success'] + trends_df['failed']
+        trends_df['success_rate'] = (trends_df['success'] / trends_df['total'] * 100).fillna(0)
+        
+        # Create subplots
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=("Daily Extractions", "Success Rate Over Time", 
+                          "Cumulative Extractions", "Success vs Failed"),
+            specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                   [{"secondary_y": False}, {"type": "pie"}]]
+        )
+        
+        # Daily extractions
+        fig.add_trace(
+            go.Bar(x=trends_df['date'], y=trends_df['success'], name='Successful', marker_color='green'),
+            row=1, col=1
+        )
+        fig.add_trace(
+            go.Bar(x=trends_df['date'], y=trends_df['failed'], name='Failed', marker_color='red'),
+            row=1, col=1
+        )
+        
+        # Success rate
+        fig.add_trace(
+            go.Scatter(x=trends_df['date'], y=trends_df['success_rate'], 
+                      mode='lines+markers', name='Success Rate %',
+                      line=dict(color='blue', width=2)),
+            row=1, col=2
+        )
+        
+        # Cumulative extractions
+        trends_df['cumulative_success'] = trends_df['success'].cumsum()
+        trends_df['cumulative_failed'] = trends_df['failed'].cumsum()
+        
+        fig.add_trace(
+            go.Scatter(x=trends_df['date'], y=trends_df['cumulative_success'], 
+                      mode='lines', name='Cumulative Success',
+                      line=dict(color='green', width=2)),
+            row=2, col=1
+        )
+        fig.add_trace(
+            go.Scatter(x=trends_df['date'], y=trends_df['cumulative_failed'], 
+                      mode='lines', name='Cumulative Failed',
+                      line=dict(color='red', width=2)),
+            row=2, col=1
+        )
+        
+        # Pie chart
+        total_success = trends_df['success'].sum()
+        total_failed = trends_df['failed'].sum()
+        fig.add_trace(
+            go.Pie(labels=['Successful', 'Failed'], 
+                  values=[total_success, total_failed],
+                  marker_colors=['green', 'red']),
+            row=2, col=2
+        )
+        
+        fig.update_layout(height=800, showlegend=True, title_text=f"Extraction Analytics - Last {trend_days} Days")
+        fig.update_xaxes(title_text="Date", row=1, col=1)
+        fig.update_xaxes(title_text="Date", row=1, col=2)
+        fig.update_xaxes(title_text="Date", row=2, col=1)
+        fig.update_yaxes(title_text="Count", row=1, col=1)
+        fig.update_yaxes(title_text="Success Rate (%)", row=1, col=2)
+        fig.update_yaxes(title_text="Cumulative Count", row=2, col=1)
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Key Metrics
+        st.subheader("📊 Key Performance Indicators")
+        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+        
+        with kpi_col1:
+            avg_daily = trends_df['total'].mean()
+            st.metric("Avg Daily Extractions", f"{avg_daily:.1f}")
+        
+        with kpi_col2:
+            overall_success_rate = (total_success / (total_success + total_failed) * 100) if (total_success + total_failed) > 0 else 0
+            st.metric("Overall Success Rate", f"{overall_success_rate:.1f}%")
+        
+        with kpi_col3:
+            peak_day = trends_df.loc[trends_df['total'].idxmax(), 'date'].strftime('%Y-%m-%d')
+            peak_count = trends_df['total'].max()
+            st.metric("Peak Day", peak_day, f"{peak_count} extractions")
+        
+        with kpi_col4:
+            trend_direction = "📈" if trends_df.tail(7)['success_rate'].mean() > trends_df.head(7)['success_rate'].mean() else "📉"
+            st.metric("7-Day Trend", trend_direction, "Success rate trend")
+        
+        # Insights
+        st.subheader("💡 Automated Insights")
+        
+        insights = []
+        
+        # Best performing day
+        best_day = trends_df.loc[trends_df['success_rate'].idxmax()]
+        insights.append(f"✅ Best performance on {best_day['date'].strftime('%Y-%m-%d')} with {best_day['success_rate']:.1f}% success rate")
+        
+        # Worst performing day
+        worst_day = trends_df.loc[trends_df['success_rate'].idxmin()]
+        if worst_day['total'] > 0:
+            insights.append(f"⚠️ Lowest performance on {worst_day['date'].strftime('%Y-%m-%d')} with {worst_day['success_rate']:.1f}% success rate")
+        
+        # Recent trend
+        recent_avg = trends_df.tail(7)['success_rate'].mean()
+        overall_avg = trends_df['success_rate'].mean()
+        if recent_avg > overall_avg + 5:
+            insights.append(f"📈 Recent performance ({recent_avg:.1f}%) is above average ({overall_avg:.1f}%)")
+        elif recent_avg < overall_avg - 5:
+            insights.append(f"📉 Recent performance ({recent_avg:.1f}%) is below average ({overall_avg:.1f}%)")
+        
+        for insight in insights:
+            st.info(insight)
+    else:
+        st.info("No trend data available for the selected period")
+
+# Tab 7: Admin Tools
+with tab7:
+    st.header("⚙️ Admin Tools")
+    
+    # Cache Management
+    st.subheader("🗄️ Cache Management")
+    
+    cache_col1, cache_col2, cache_col3 = st.columns(3)
+    
+    with cache_col1:
+        if st.button("Clear All Cache", key="clear_all_cache", type="secondary"):
+            result = clear_api_cache()
+            if result.get("cleared_entries"):
+                st.success(f"Cleared {result['cleared_entries']} cache entries")
+                add_activity_log(f"Cleared {result['cleared_entries']} cache entries", "success")
+            st.cache_data.clear()
+            st.success("Local cache cleared")
+    
+    with cache_col2:
+        cache_pattern = st.text_input("Cache Pattern", placeholder="Enter pattern to clear specific cache", key="cache_pattern")
+        if st.button("Clear Pattern", key="clear_pattern_cache"):
+            if cache_pattern:
+                result = clear_api_cache(pattern=cache_pattern)
+                if result.get("cleared_entries"):
+                    st.success(f"Cleared {result['cleared_entries']} matching entries")
+                    add_activity_log(f"Cleared cache entries matching '{cache_pattern}'", "info")
+    
+    with cache_col3:
+        cache_enabled = os.getenv("ENABLE_CACHE", "true").lower() == "true"
+        st.metric("Cache Status", "Active" if cache_enabled else "Disabled")
+        if hasattr(st.session_state, 'cache_data'):
+            st.caption(f"Local cache size: {len(st.session_state.cache_data)} items")
+    
+    st.divider()
+    
+    # Webhook Configuration
+    st.subheader("🔔 Webhook Configuration")
+    
+    webhook_col1, webhook_col2 = st.columns(2)
+    
+    with webhook_col1:
+        webhook_url = st.text_input("Webhook URL", placeholder="https://your-webhook-endpoint.com", key="webhook_url")
+        webhook_events = st.multiselect(
+            "Events to Subscribe",
+            options=["extraction_complete", "batch_complete", "error", "property_updated"],
+            default=["extraction_complete", "batch_complete"],
+            key="webhook_events"
+        )
+    
+    with webhook_col2:
+        if st.button("Register Webhook", key="register_webhook", type="primary"):
+            if webhook_url and webhook_events:
+                result = register_webhook(webhook_url, webhook_events)
+                if result.get("status") == "registered":
+                    st.success("Webhook registered successfully")
+                    add_activity_log(f"Registered webhook: {webhook_url}", "success")
+                else:
+                    st.error(f"Failed to register webhook: {result.get('message', 'Unknown error')}")
+            else:
+                st.warning("Please provide webhook URL and select events")
+    
+    st.divider()
+    
+    # Performance Metrics
+    st.subheader("📊 System Performance")
+    
+    # Get API health with detailed metrics
+    status_code, health_data = check_api_health()
+    
+    if health_data:
+        perf_col1, perf_col2, perf_col3, perf_col4 = st.columns(4)
+        
+        with perf_col1:
+            st.metric("API Response Time", f"{health_data.get('response_time_ms', 0):.1f} ms")
+        
+        with perf_col2:
+            st.metric("API Version", health_data.get('api_version', 'Unknown'))
+        
+        with perf_col3:
+            cache_status = health_data.get('cache_status', 'Unknown')
+            cache_color = "🟢" if cache_status in ["redis", "memory"] else "🔴"
+            st.metric("Cache Type", f"{cache_color} {cache_status}")
+        
+        with perf_col4:
+            metrics_enabled = health_data.get('metrics_enabled', False)
+            metrics_color = "🟢" if metrics_enabled else "🔴"
+            st.metric("Metrics", f"{metrics_color} {'Enabled' if metrics_enabled else 'Disabled'}")
+    
+    # Export Configuration
+    st.divider()
+    st.subheader("📤 Export Configuration")
+    
+    export_col1, export_col2 = st.columns(2)
+    
+    with export_col1:
+        st.write("**Export Current Configuration**")
+        config_data = {
+            "filters": {k: v for k, v in st.session_state.items() if k.startswith("filter_")},
+            "presets": st.session_state.filter_presets,
+            "settings": {
+                "auto_refresh": st.session_state.auto_refresh,
+                "refresh_interval": st.session_state.refresh_interval,
+                "dark_mode": st.session_state.dark_mode
+            }
+        }
+        
+        config_json = json.dumps(config_data, indent=2)
+        st.download_button(
+            label="📥 Download Config",
+            data=config_json,
+            file_name=f"dashboard_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json"
+        )
+    
+    with export_col2:
+        st.write("**Import Configuration**")
+        uploaded_config = st.file_uploader("Choose config file", type="json", key="config_upload")
+        
+        if uploaded_config is not None:
+            try:
+                config_data = json.load(uploaded_config)
+                if st.button("Apply Configuration", key="apply_config"):
+                    # Apply filters
+                    for key, value in config_data.get("filters", {}).items():
+                        st.session_state[key] = value
+                    # Apply presets
+                    st.session_state.filter_presets = config_data.get("presets", {})
+                    # Apply settings
+                    settings = config_data.get("settings", {})
+                    st.session_state.auto_refresh = settings.get("auto_refresh", False)
+                    st.session_state.refresh_interval = settings.get("refresh_interval", 30)
+                    st.session_state.dark_mode = settings.get("dark_mode", False)
+                    
+                    st.success("Configuration applied successfully")
+                    add_activity_log("Imported dashboard configuration", "success")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error loading configuration: {e}")
+
+# Tab 8: Activity Log
+with tab8:
+    st.header("📋 Activity Log")
+    
+    # Activity log controls
+    log_col1, log_col2, log_col3 = st.columns([2, 2, 1])
+    
+    with log_col1:
+        log_filter = st.selectbox(
+            "Filter by Type",
+            options=["All", "info", "success", "warning", "error"],
+            key="log_filter"
+        )
+    
+    with log_col2:
+        log_search = st.text_input("Search logs...", key="log_search")
+    
+    with log_col3:
+        if st.button("Clear Log", key="clear_log"):
+            st.session_state.activity_log = []
+            st.success("Activity log cleared")
+    
+    # Display activity log
+    if st.session_state.activity_log:
+        st.subheader(f"Recent Activities ({len(st.session_state.activity_log)} entries)")
+        
+        # Filter logs
+        filtered_logs = st.session_state.activity_log
+        if log_filter != "All":
+            filtered_logs = [log for log in filtered_logs if log.get("type") == log_filter]
+        if log_search:
+            filtered_logs = [log for log in filtered_logs if log_search.lower() in log.get("message", "").lower()]
+        
+        # Create activity feed
+        st.markdown('<div class="activity-feed">', unsafe_allow_html=True)
+        
+        for entry in filtered_logs[:50]:  # Show last 50 entries
+            timestamp = datetime.fromisoformat(entry['timestamp']).strftime('%H:%M:%S')
+            message = entry['message']
+            entry_type = entry.get('type', 'info')
+            
+            # Color code by type
+            type_colors = {
+                'info': '#1f77b4',
+                'success': '#28a745',
+                'warning': '#ffc107',
+                'error': '#dc3545'
+            }
+            color = type_colors.get(entry_type, '#6c757d')
+            
+            activity_html = f"""
+            <div class="activity-item" style="border-left-color: {color};">
+                <strong>{timestamp}</strong> - {message}
+                <span class="status-badge" style="background-color: {color}; color: white;">{entry_type}</span>
+            </div>
+            """
+            st.markdown(activity_html, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Export activity log
+        st.divider()
+        if st.button("📥 Export Activity Log", key="export_activity_log"):
+            log_df = pd.DataFrame(st.session_state.activity_log)
+            csv = log_df.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"activity_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+    else:
+        st.info("No activity recorded yet. Start using the dashboard to see activities here.")
+    
+    # Real-time extraction progress
+    if st.session_state.extraction_progress:
+        st.divider()
+        st.subheader("🔄 Active Extractions")
+        
+        for prop_id, progress in st.session_state.extraction_progress.items():
+            progress_col1, progress_col2 = st.columns([3, 1])
+            
+            with progress_col1:
+                st.write(f"**Property:** {progress.get('name', prop_id)}")
+                st.progress(progress.get('percent', 0) / 100)
+                st.caption(progress.get('status', 'Processing...'))
+            
+            with progress_col2:
+                if progress.get('percent', 0) >= 100:
+                    st.success("✅ Complete")
+                else:
+                    st.info(f"{progress.get('percent', 0)}%")
 
 # Footer
 st.divider()
