@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL - READ FIRST
+**DEPLOYMENT WARNING**: Before modifying `api_public.py` or Railway configuration files, you MUST read `DEPLOYMENT_CRITICAL.md`. This file contains critical patterns that must be preserved to prevent deployment failures.
+
 ## Project Overview
 
 This is a comprehensive property tax extraction system with Supabase integration, designed to scrape and extract tax information from various county tax websites. The system features a REST API, real-time dashboard, database persistence, authentication, and supports both simple HTTP requests and Selenium-based scraping for JavaScript-heavy sites.
