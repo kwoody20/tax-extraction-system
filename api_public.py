@@ -25,17 +25,26 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
+# Lazy initialization - don't check or create client at module level
+_supabase_client: Optional[Client] = None
 
-# Connection pooling - singleton pattern
-@lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
-    """Singleton Supabase client for connection reuse."""
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    """Get or create singleton Supabase client with lazy initialization."""
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
 
-# Initialize Supabase client
-supabase = get_supabase_client()
+# Create a proxy that will use lazy initialization
+class SupabaseProxy:
+    """Proxy class for lazy Supabase initialization."""
+    def __getattr__(self, name):
+        return getattr(get_supabase_client(), name)
+
+# Use proxy instead of direct client
+supabase = SupabaseProxy()
 
 # Thread pool for blocking database operations
 db_executor = ThreadPoolExecutor(max_workers=10)
