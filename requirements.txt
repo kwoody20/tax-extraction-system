@@ -31,6 +31,11 @@ pandas==2.2.0
 openpyxl==3.1.2
 xlsxwriter==3.1.9
 
+# Streamlit Dashboard (REQUIRED for dashboard)
+streamlit==1.29.0
+plotly==5.18.0
+numpy==1.26.4
+
 # Error handling and utilities (REQUIRED)
 tenacity==8.2.3
 pytz==2023.3
