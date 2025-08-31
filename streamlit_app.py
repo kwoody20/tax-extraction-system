@@ -1115,8 +1115,12 @@ with tab2:
             )
         
         with col3:
-            # JSON export
-            json_data = df.to_json(orient='records', date_format='iso')
+            # JSON export - convert dates to strings first
+            json_df = df.copy()
+            for col in json_df.columns:
+                if json_df[col].dtype == 'datetime64[ns]' or 'date' in col.lower():
+                    json_df[col] = json_df[col].astype(str).replace('NaT', '')
+            json_data = json_df.to_json(orient='records', date_format='iso')
             st.download_button(
                 label="📋 Download JSON",
                 data=json_data,
@@ -1379,8 +1383,12 @@ with tab3:
             )
         
         with col2:
-            # JSON export
-            json_data = entities_df.to_json(orient='records', date_format='iso')
+            # JSON export - convert dates to strings first
+            json_df = entities_df.copy()
+            for col in json_df.columns:
+                if json_df[col].dtype == 'datetime64[ns]' or 'date' in col.lower():
+                    json_df[col] = json_df[col].astype(str).replace('NaT', '')
+            json_data = json_df.to_json(orient='records', date_format='iso')
             st.download_button(
                 label="📋 Download JSON",
                 data=json_data,
