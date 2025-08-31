@@ -1,0 +1,28 @@
+# Tax Extraction System - Railway Deployment
+# Full dependencies for api_public.py with Supabase integration
+
+# API Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Database Integration - CRITICAL: Use exact versions to avoid proxy parameter bug
+supabase==2.8.1
+gotrue==2.8.1  # DO NOT UPGRADE - versions 2.9.0+ have proxy parameter bug
+httpx==0.27.0  # Required for compatibility
+postgrest==0.17.0  # Required by supabase 2.8.1
+realtime==2.0.0  # Required by supabase 2.8.1
+storage3==0.8.0  # Required by supabase 2.8.1
+supafunc==0.6.0  # Required by supabase 2.8.1
+python-dotenv==1.0.0
+
+# Web Scraping for cloud_extractor
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Dashboard Dependencies (for Streamlit)
+streamlit==1.29.0
+pandas==2.2.0
+requests==2.31.0
+plotly==5.18.0
+openpyxl==3.1.2
