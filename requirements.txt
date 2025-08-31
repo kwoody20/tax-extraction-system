@@ -1,10 +1,18 @@
 # Tax Extraction System - Railway Deployment
-# Minimal dependencies for cloud deployment
+# Full dependencies for api_public.py with Supabase integration
 
-# API Framework (required for api_minimal.py)
+# API Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
+
+# Database Integration
+supabase==2.3.0
+python-dotenv==1.0.0
+
+# Web Scraping for cloud_extractor
+beautifulsoup4==4.12.3
+lxml==5.1.0
 
 # Dashboard Dependencies (for Streamlit)
 streamlit==1.29.0
