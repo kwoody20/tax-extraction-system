@@ -250,6 +250,7 @@ class HealthResponse(BaseModel):
     metrics_enabled: bool = ENABLE_METRICS
     api_version: str = API_VERSION
     response_time_ms: Optional[float] = None
+    error: Optional[str] = None  # Add error field for health check errors
 
 class PropertyResponse(BaseModel):
     property_id: str = Field(..., description="Unique property identifier")
@@ -920,11 +921,9 @@ async def health_check():
         cache_status=cache_status,
         metrics_enabled=ENABLE_METRICS,
         api_version=API_VERSION,
-        response_time_ms=response_time
+        response_time_ms=response_time,
+        error=error_detail  # Include error if present
     )
-    
-    if error_detail:
-        response.error = error_detail
     
     return response
 
