@@ -1,6 +1,7 @@
 """
 Streamlit Dashboard for Tax Extraction System.
 Enhanced version with improved UI/UX, filtering, and visualizations.
+Rebuild trigger: 2024-08-31-v2 - Using correct Supabase versions
 """
 
 import streamlit as st
