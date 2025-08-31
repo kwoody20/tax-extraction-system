@@ -60,22 +60,17 @@ try:
 except ImportError:
     HAS_METRICS = False
 
-try:
-    import redis.asyncio as aioredis
-    HAS_REDIS = True
-except ImportError:
-    try:
-        import aioredis
-        HAS_REDIS = True
-    except ImportError:
-        HAS_REDIS = False
+# Redis disabled - not configured for this deployment
+HAS_REDIS = False
+aioredis = None
 
 load_dotenv()
 
 # Configuration - loaded lazily
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-REDIS_URL = os.getenv("REDIS_URL")  # Optional Redis for caching
+# REDIS_URL = os.getenv("REDIS_URL")  # Redis disabled for this deployment
+REDIS_URL = None
 ENABLE_METRICS = os.getenv("ENABLE_METRICS", "true").lower() == "true" and HAS_METRICS
 ENABLE_CACHE = os.getenv("ENABLE_CACHE", "true").lower() == "true"
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes default
@@ -131,8 +126,8 @@ else:
     memory_cache = {}
     query_cache = {}
 
-# Redis client for distributed caching (optional)
-redis_client: Optional[Any] = None
+# Redis client disabled for this deployment
+redis_client = None
 
 # Metrics initialization
 if ENABLE_METRICS:
@@ -162,19 +157,10 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("API starting up with enhanced optimizations...")
     
-    # Initialize Redis if available
+    # Redis disabled - using memory cache only
     global redis_client
-    if REDIS_URL and ENABLE_CACHE and HAS_REDIS:
-        try:
-            if hasattr(aioredis, 'from_url'):
-                redis_client = await aioredis.from_url(REDIS_URL, decode_responses=True)
-            else:
-                redis_client = await aioredis.create_redis_pool(REDIS_URL)
-            await redis_client.ping()
-            logger.info("Redis cache initialized")
-        except Exception as e:
-            logger.warning(f"Redis initialization failed: {e}. Using memory cache only.")
-            redis_client = None
+    redis_client = None
+    logger.info("Using memory cache (Redis disabled)")
     
     # Warm up database connection pool
     try:
@@ -190,8 +176,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("API shutting down...")
-    if redis_client:
-        await redis_client.close()
+    # Redis disabled - no cleanup needed
     db_executor.shutdown(wait=True)
 
 # Determine response class
@@ -384,21 +369,7 @@ def cached_result(ttl: int = CACHE_TTL):
                     cache_hits.inc()
                 return memory_cache[key]
             
-            # Check Redis if available
-            if redis_client:
-                try:
-                    cached = await redis_client.get(key)
-                    if cached:
-                        if ENABLE_METRICS:
-                            cache_hits.inc()
-                        if HAS_ORJSON:
-                            result = orjson.loads(cached)
-                        else:
-                            result = json.loads(cached)
-                        memory_cache[key] = result  # Update memory cache
-                        return result
-                except Exception as e:
-                    logger.warning(f"Redis get error: {e}")
+            # Redis disabled - skip Redis check
             
             # Cache miss - execute function
             if ENABLE_METRICS:
@@ -406,19 +377,8 @@ def cached_result(ttl: int = CACHE_TTL):
             
             result = await func(*args, **kwargs)
             
-            # Store in caches
+            # Store in memory cache only (Redis disabled)
             memory_cache[key] = result
-            if redis_client:
-                try:
-                    if HAS_ORJSON:
-                        json_data = orjson.dumps(result)
-                        if isinstance(json_data, bytes):
-                            json_data = json_data.decode()
-                    else:
-                        json_data = json.dumps(result)
-                    await redis_client.setex(key, ttl, json_data)
-                except Exception as e:
-                    logger.warning(f"Redis set error: {e}")
             
             return result
         return wrapper
@@ -944,17 +904,10 @@ async def health_check():
         status = "unhealthy"
         error_detail = str(e)
     
-    # Check cache status
+    # Check cache status (Redis disabled)
     cache_status = "disabled"
     if ENABLE_CACHE:
-        if redis_client:
-            try:
-                await redis_client.ping()
-                cache_status = "redis"
-            except:
-                cache_status = "memory"
-        else:
-            cache_status = "memory"
+        cache_status = "memory"  # Redis disabled, using memory only
     
     response_time = (time.time() - start_time) * 1000  # Convert to ms
     
@@ -1476,21 +1429,7 @@ async def clear_cache(
             cleared_count = len(memory_cache)
             memory_cache.clear()
         
-        # Clear Redis cache if available
-        if redis_client:
-            if pattern:
-                cursor = 0
-                redis_cleared = 0
-                while True:
-                    cursor, keys = await redis_client.scan(cursor, match=f"*{pattern}*")
-                    if keys:
-                        await redis_client.delete(*keys)
-                        redis_cleared += len(keys)
-                    if cursor == 0:
-                        break
-                cleared_count += redis_cleared
-            else:
-                await redis_client.flushdb()
+        # Redis disabled - only clearing memory cache
         
         return {
             "message": "Cache cleared successfully",

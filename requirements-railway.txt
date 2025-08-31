@@ -49,8 +49,8 @@ slowapi==0.1.9
 # Advanced caching (OPTIONAL - basic dict caching without it)
 cachetools==5.3.2
 
-# Redis for distributed caching (OPTIONAL - memory cache only without it)
-redis[hiredis]==5.0.1
+# Redis disabled for this deployment
+# redis[hiredis]==5.0.1
 
 # Metrics and monitoring (OPTIONAL - no metrics without it)
 prometheus-client==0.19.0
