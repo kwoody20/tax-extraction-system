@@ -1,0 +1,12 @@
+# Nixpacks configuration for Railway deployment
+# This file tells Railway which requirements file to use
+
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+# Use the Railway-specific requirements file with correct Supabase versions
+cmds = ["pip install -r requirements-railway.txt"]
+
+[start]
+cmd = "uvicorn api_public:app --host 0.0.0.0 --port ${PORT:-8000}"
