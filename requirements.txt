@@ -1,6 +1,12 @@
-# Streamlit Dashboard Requirements
+# Tax Extraction System - Railway Deployment
 # Minimal dependencies for cloud deployment
 
+# API Framework (required for api_minimal.py)
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Dashboard Dependencies (for Streamlit)
 streamlit==1.29.0
 pandas==2.2.0
 requests==2.31.0
