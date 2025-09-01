@@ -1,7 +1,16 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "watchPatterns": [
+      "src/**",
+      "api_public.py",
+      "streamlit_app.py",
+      "requirements.txt",
+      "runtime.txt",
+      "railway.json",
+      "Dockerfile.api"
+    ]
   },
   "deploy": {
     "startCommand": "uvicorn api_public:app --host 0.0.0.0 --port ${PORT:-8000}",

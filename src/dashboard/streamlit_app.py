@@ -445,36 +445,40 @@ def format_due_date(date_str):
         return date_str
 
 # Apply dark mode if enabled
-if st.session_state.dark_mode:
+if hasattr(st.session_state, 'dark_mode') and st.session_state.dark_mode:
     st.markdown('<style>body { background-color: #1a1a1a; color: #ffffff; }</style>', unsafe_allow_html=True)
 
 # Header with enhanced controls
 header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1, 1, 1])
 with header_col1:
     st.title("🏢 Property Tax Dashboard Pro")
-    st.caption(f"Real-time monitoring with advanced analytics | Last refresh: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+    last_refresh_time = getattr(st.session_state, 'last_refresh', datetime.now())
+    st.caption(f"Real-time monitoring with advanced analytics | Last refresh: {last_refresh_time.strftime('%H:%M:%S')}")
 
 with header_col2:
     # Auto-refresh toggle
-    auto_refresh = st.toggle("Auto-Refresh", value=st.session_state.auto_refresh, key="auto_refresh_toggle")
-    if auto_refresh != st.session_state.auto_refresh:
+    auto_refresh_value = getattr(st.session_state, 'auto_refresh', False)
+    auto_refresh = st.toggle("Auto-Refresh", value=auto_refresh_value, key="auto_refresh_toggle")
+    if auto_refresh != auto_refresh_value:
         st.session_state.auto_refresh = auto_refresh
         if auto_refresh:
             add_activity_log("Auto-refresh enabled", "info")
-    
-    if st.session_state.auto_refresh:
+
+    if getattr(st.session_state, 'auto_refresh', False):
+        refresh_interval_value = getattr(st.session_state, 'refresh_interval', 30)
         refresh_interval = st.select_slider(
             "Interval (sec)",
             options=[10, 30, 60, 120, 300],
-            value=st.session_state.refresh_interval,
+            value=refresh_interval_value,
             key="refresh_interval_slider"
         )
         st.session_state.refresh_interval = refresh_interval
 
 with header_col3:
     # Dark mode toggle
-    dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
-    if dark_mode != st.session_state.dark_mode:
+    dark_mode_value = getattr(st.session_state, 'dark_mode', False)
+    dark_mode = st.toggle("🌙 Dark Mode", value=dark_mode_value, key="dark_mode_toggle")
+    if dark_mode != dark_mode_value:
         st.session_state.dark_mode = dark_mode
         st.rerun()
 
@@ -486,17 +490,20 @@ with header_col4:
         st.rerun()
 
 # Auto-refresh implementation
-if st.session_state.auto_refresh:
-    time_since_refresh = (datetime.now() - st.session_state.last_refresh).seconds
-    if time_since_refresh >= st.session_state.refresh_interval:
+if getattr(st.session_state, 'auto_refresh', False):
+    last_refresh_time = getattr(st.session_state, 'last_refresh', datetime.now())
+    time_since_refresh = (datetime.now() - last_refresh_time).seconds
+    refresh_interval_value = getattr(st.session_state, 'refresh_interval', 30)
+    if time_since_refresh >= refresh_interval_value:
         st.cache_data.clear()
         st.session_state.last_refresh = datetime.now()
-        add_activity_log(f"Auto-refresh executed (interval: {st.session_state.refresh_interval}s)", "info")
+        add_activity_log(f"Auto-refresh executed (interval: {refresh_interval_value}s)", "info")
         st.rerun()
 
 # Notification banner for new updates
-if st.session_state.notifications:
-    latest_notification = st.session_state.notifications[0]
+notifications_list = getattr(st.session_state, 'notifications', [])
+if notifications_list:
+    latest_notification = notifications_list[0]
     st.info(f"🔔 {latest_notification['message']}")
     if st.button("Dismiss", key="dismiss_notification"):
         st.session_state.notifications.pop(0)
@@ -537,11 +544,12 @@ with st.sidebar:
     with st.expander("📌 Filter Presets", expanded=False):
         preset_col1, preset_col2 = st.columns([2, 1])
         with preset_col1:
-            preset_names = list(st.session_state.filter_presets.keys())
+            filter_presets_dict = getattr(st.session_state, 'filter_presets', {})
+            preset_names = list(filter_presets_dict.keys())
             if preset_names:
                 selected_preset = st.selectbox("Load Preset", ["None"] + preset_names)
                 if selected_preset != "None" and st.button("Load", key="load_preset"):
-                    preset = st.session_state.filter_presets[selected_preset]
+                    preset = filter_presets_dict[selected_preset]
                     # Apply preset filters
                     for key, value in preset.items():
                         st.session_state[f"filter_{key}"] = value

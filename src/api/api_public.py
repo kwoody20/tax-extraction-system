@@ -433,14 +433,13 @@ async def get_statistics_optimized() -> Dict[str, Any]:
             COUNT(DISTINCT CASE WHEN (p.amount_due IS NULL OR p.amount_due = 0) THEN p.id END) as pending_count,
             MAX(p.updated_at) as last_extraction_date
         FROM properties p
-        LEFT JOIN entities e ON p.entity_id = e.entity_id
+        LEFT JOIN entities e ON p.parent_entity_id = e.entity_id
         """
         
-        # Execute with monitoring
+        # Execute with monitoring - temporarily disable RPC to use manual query
         result = await monitored_query(
             "statistics_rpc",
-            lambda: supabase.rpc("get_tax_statistics", {}).execute()
-            if hasattr(supabase, 'rpc') else None
+            lambda: None  # Temporarily disabled to use manual fallback
         )
         
         # Fallback to optimized manual query if RPC not available

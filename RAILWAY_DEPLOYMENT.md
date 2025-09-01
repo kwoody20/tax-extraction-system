@@ -10,6 +10,66 @@ Railway is perfect for this project because it supports:
 - ✅ Persistent storage
 - ✅ WebSockets for real-time updates
 
+---
+
+## 🚀 **DEPLOYMENT OPTIMIZATION** - Stop Unnecessary Redeploys!
+
+### The Problem
+Railway was redeploying on **every** git change, even when only documentation or logs changed. This wastes time and Railway hours.
+
+### The Solution
+We've implemented **smart deployment filtering** that only triggers redeploys when **relevant code changes**.
+
+### Quick Setup (2 minutes)
+
+1. **The files are already configured!** Your `railway.json` now includes:
+   ```json
+   "watchPatterns": [
+     "src/**",
+     "api_public.py",
+     "streamlit_app.py",
+     "requirements.txt",
+     "runtime.txt",
+     "railway.json",
+     "Dockerfile.api"
+   ]
+   ```
+
+2. **`.railwayignore` file created** - Excludes logs, docs, temp files from triggering deploys
+
+3. **Optimization script available**:
+   ```bash
+   # Check if deployment needed
+   ./railway-optimize.sh check
+
+   # Optimize before deployment
+   ./railway-optimize.sh optimize
+
+   # Clean up temporary files
+   ./railway-optimize.sh cleanup
+   ```
+
+### What Gets Ignored (No More Unnecessary Deploys)
+- ✅ Documentation files (*.md, docs/)
+- ✅ Log files (*.log)
+- ✅ Excel/CSV data files
+- ✅ Temporary files (temp/, tmp/)
+- ✅ Cache files (__pycache__/, *.pyc)
+- ✅ Test files
+- ✅ IDE files (.vscode/, .idea/)
+- ✅ Docker compose files
+- ✅ Screenshots and output directories
+
+### What Triggers Deployment
+- ✅ Source code changes (src/)
+- ✅ API files (api_public.py)
+- ✅ Dashboard files (streamlit_app.py)
+- ✅ Dependencies (requirements.txt)
+- ✅ Railway config (railway.json)
+- ✅ Docker files (Dockerfile.api)
+
+---
+
 ## 📋 Pre-Deployment Checklist
 
 - [x] Railway configuration files created

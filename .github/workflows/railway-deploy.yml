@@ -1,0 +1,60 @@
+# Railway Deployment Optimization Workflow
+# Place this in .github/workflows/railway-deploy.yml
+
+name: Railway Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-deployment-needed:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Check if deployment is needed
+      id: check
+      run: |
+        if ./railway-optimize.sh check; then
+          echo "deploy=true" >> $GITHUB_OUTPUT
+        else
+          echo "deploy=false" >> $GITHUB_OUTPUT
+        fi
+
+  deploy:
+    needs: check-deployment-needed
+    if: needs.check-deployment-needed.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Optimize for deployment
+      run: ./railway-optimize.sh optimize
+
+    - name: Deploy to Railway
+      uses: railwayapp/railway-deploy@v1
+      with:
+        railway-token: ${{ secrets.RAILWAY_TOKEN }}
+        project-id: ${{ secrets.RAILWAY_PROJECT_ID }}
+        environment: production
+      # Only runs if relevant files changed
+
+  skip-deploy:
+    needs: check-deployment-needed
+    if: needs.check-deployment-needed.outputs.deploy == 'false'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Skip deployment
+      run: echo "⏭️ Skipping deployment - no relevant changes detected"

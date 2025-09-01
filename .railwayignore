@@ -1,0 +1,68 @@
+# Railway Ignore File
+# Files and directories that should NOT trigger redeploys
+
+# Documentation and markdown files
+*.md
+docs/
+*.txt
+!requirements.txt
+!runtime.txt
+
+# Logs and temporary files
+*.log
+logs/
+temp/
+tmp/
+*.xlsx
+*.xls
+*.csv
+!phase-two-taxes-8-17.xlsx
+
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+.claude/
+.streamlit/
+
+# Cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Docker files (not needed for Railway builds)
+docker-compose*.yml
+Dockerfile.extractor
+start_*.sh
+stop_*.sh
+run_*.sh
+
+# Data files and exports
+properties_data.json
+supabase_update_*.json
+api_*.log
+tax_extraction*.log
+extraction-links-and-steps.xlsx
+entities-proptax-*.xlsx
+updated-asset-tracker.xlsx
+tax_extraction_analysis.xlsx
+
+# Screenshots and output
+screenshots/
+output/
+results/
