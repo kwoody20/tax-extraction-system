@@ -1995,8 +1995,27 @@ with tab7:
     
     with export_col1:
         st.write("**Export Current Configuration**")
+        
+        # Safely extract serializable filter values
+        def get_serializable_value(value):
+            """Convert session state values to JSON-serializable format."""
+            try:
+                # Try to serialize to check if it's valid
+                json.dumps(value)
+                return value
+            except (TypeError, ValueError):
+                # Convert non-serializable objects to strings or None
+                if hasattr(value, '__str__'):
+                    return str(value)
+                return None
+        
+        serializable_filters = {}
+        for k, v in st.session_state.items():
+            if k.startswith("filter_"):
+                serializable_filters[k] = get_serializable_value(v)
+        
         config_data = {
-            "filters": {k: v for k, v in st.session_state.items() if k.startswith("filter_")},
+            "filters": serializable_filters,
             "presets": st.session_state.filter_presets,
             "settings": {
                 "auto_refresh": st.session_state.auto_refresh,
