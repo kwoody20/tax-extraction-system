@@ -23,15 +23,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse, JSONResponse
 from pydantic import BaseModel, Field, validator
-from supabase import create_client, Client
 from dotenv import load_dotenv
 import logging
 
-# Import cloud extractor
+# Import cloud extractor and pooled database client
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.extractors.cloud_extractor import extract_tax_cloud, cloud_extractor
+from src.database.pooled_supabase_client import create_pooled_client, PooledSupabasePropertyTaxClient
+from src.database.supabase_pool import get_sync_pool
 
 # Optional imports with graceful fallback
 try:
@@ -84,23 +85,41 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 API_VERSION = "v1"  # Current API version
 ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true" and HAS_RATE_LIMIT
 
-# Lazy initialization - don't check or create client at module level
-_supabase_client: Optional[Client] = None
+# Lazy initialization with connection pooling
+_pooled_client: Optional[PooledSupabasePropertyTaxClient] = None
 
-def get_supabase_client() -> Client:
-    """Get or create singleton Supabase client with lazy initialization."""
-    global _supabase_client
-    if _supabase_client is None:
+def get_pooled_client() -> PooledSupabasePropertyTaxClient:
+    """Get or create singleton pooled Supabase client with lazy initialization."""
+    global _pooled_client
+    if _pooled_client is None:
         if not SUPABASE_URL or not SUPABASE_KEY:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
-        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    return _supabase_client
+        # Create pooled client with optimized settings
+        _pooled_client = create_pooled_client(
+            min_connections=3,
+            max_connections=15,
+            enable_caching=ENABLE_CACHE
+        )
+        logger.info("Initialized pooled Supabase client")
+    return _pooled_client
 
-# Create a proxy that will use lazy initialization
+# Create a proxy that will use lazy initialization with pooling
 class SupabaseProxy:
-    """Proxy class for lazy Supabase initialization."""
+    """Proxy class for lazy pooled Supabase initialization."""
     def __getattr__(self, name):
-        return getattr(get_supabase_client(), name)
+        client = get_pooled_client()
+        # Get the underlying Supabase client from pool for compatibility
+        if hasattr(client, 'pool'):
+            with client.pool.get_connection() as conn:
+                return getattr(conn, name)
+        return getattr(client, name)
+    
+    def table(self, table_name: str):
+        """Override table method to use pooled connection."""
+        client = get_pooled_client()
+        # Use pooled connection for table operations
+        with client.pool.get_connection() as conn:
+            return conn.table(table_name)
 
 # Use proxy instead of direct client
 supabase = SupabaseProxy()
@@ -158,28 +177,40 @@ if ENABLE_METRICS:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("API starting up with enhanced optimizations...")
+    logger.info("API starting up with connection pooling and enhanced optimizations...")
+    
+    # Initialize pooled client (lazy initialization)
+    try:
+        client = get_pooled_client()
+        # Warm up the connection pool
+        test_result = client.get_properties(limit=1)
+        logger.info(f"Database connection pool initialized and warmed up")
+        
+        # Log pool stats
+        stats = client.get_pool_stats()
+        logger.info(f"Pool stats: {stats.get('idle')} idle, {stats.get('created')} total connections")
+    except Exception as e:
+        logger.error(f"Failed to initialize pooled database connection: {e}")
     
     # Redis disabled - using memory cache only
     global redis_client
     redis_client = None
     logger.info("Using memory cache (Redis disabled)")
     
-    # Warm up database connection pool
-    try:
-        await asyncio.get_event_loop().run_in_executor(
-            db_executor,
-            lambda: supabase.table("properties").select("id").limit(1).execute()
-        )
-        logger.info("Database connection pool initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database connection: {e}")
-    
     yield
     
     # Shutdown
     logger.info("API shutting down...")
-    # Redis disabled - no cleanup needed
+    
+    # Clean up pooled connections
+    try:
+        client = get_pooled_client()
+        client.close()
+        logger.info("Connection pool closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing connection pool: {e}")
+    
+    # Shutdown thread executor
     db_executor.shutdown(wait=True)
 
 # Determine response class
@@ -882,22 +913,32 @@ def rate_limit(limits: str):
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
-    """Check API and database health."""
+    """Check API and database health with connection pool status."""
     start_time = time.time()
     error_detail = None
     supported_jurisdictions = list(cloud_extractor.get_supported_jurisdictions().keys())
+    pool_info = {}
     
     try:
-        # Test database connection with timeout
+        # Test database connection with timeout using pooled client
+        client = get_pooled_client()
         result = await asyncio.wait_for(
-            monitored_query(
-                "health_check",
-                lambda: supabase.table("properties").select("property_id").limit(1).execute()
+            asyncio.get_event_loop().run_in_executor(
+                db_executor,
+                lambda: client.get_properties(limit=1)
             ),
             timeout=5.0
         )
-        db_status = "connected" if result else "disconnected"
+        db_status = "connected" if result is not None else "disconnected"
         status = "healthy" if db_status == "connected" else "unhealthy"
+        
+        # Get pool statistics
+        pool_stats = client.get_pool_stats()
+        pool_info = {
+            "active_connections": pool_stats.get("active", 0),
+            "idle_connections": pool_stats.get("idle", 0),
+            "total_requests": pool_stats.get("total_requests", 0)
+        }
     except asyncio.TimeoutError:
         db_status = "timeout"
         status = "unhealthy"
@@ -910,7 +951,7 @@ async def health_check():
     # Check cache status (Redis disabled)
     cache_status = "disabled"
     if ENABLE_CACHE:
-        cache_status = "memory"  # Redis disabled, using memory only
+        cache_status = "memory+pooled"  # Memory cache + pooled client cache
     
     response_time = (time.time() - start_time) * 1000  # Convert to ms
     
@@ -924,7 +965,8 @@ async def health_check():
         metrics_enabled=ENABLE_METRICS,
         api_version=API_VERSION,
         response_time_ms=response_time,
-        error=error_detail  # Include error if present
+        error=error_detail,  # Include error if present
+        pool_stats=pool_info  # Add pool information
     )
     
     return response
@@ -1430,6 +1472,14 @@ async def clear_cache(
             cleared_count = len(memory_cache)
             memory_cache.clear()
         
+        # Also clear pooled client cache if available
+        try:
+            client = get_pooled_client()
+            client.clear_cache()
+            logger.info("Cleared pooled client cache")
+        except Exception:
+            pass  # Pooled client cache might not be available
+        
         # Redis disabled - only clearing memory cache
         
         return {
@@ -1437,6 +1487,43 @@ async def clear_cache(
             "cleared_entries": cleared_count
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/pool/stats", tags=["System", "Monitoring"])
+async def get_pool_statistics():
+    """Get database connection pool statistics."""
+    try:
+        client = get_pooled_client()
+        pool_stats = client.get_pool_stats()
+        cache_stats = client.get_cache_stats()
+        
+        # Update metrics if enabled
+        if ENABLE_METRICS:
+            active_connections.set(pool_stats.get("active", 0))
+        
+        return {
+            "pool": {
+                "created": pool_stats.get("created", 0),
+                "active": pool_stats.get("active", 0),
+                "idle": pool_stats.get("idle", 0),
+                "failed": pool_stats.get("failed", 0),
+                "total_requests": pool_stats.get("total_requests", 0),
+                "avg_wait_time_ms": pool_stats.get("avg_wait_time_ms", 0),
+                "peak_connections": pool_stats.get("peak_connections", 0),
+                "pool_size": pool_stats.get("pool_size", 0),
+                "overflow_count": pool_stats.get("overflow_count", 0),
+                "uptime_seconds": pool_stats.get("uptime_seconds", 0)
+            },
+            "cache": cache_stats,
+            "configuration": {
+                "min_connections": 3,
+                "max_connections": 15,
+                "cache_enabled": ENABLE_CACHE,
+                "cache_ttl_seconds": CACHE_TTL
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to get pool stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
