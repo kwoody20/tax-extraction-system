@@ -543,8 +543,10 @@ with st.sidebar:
     st.header("🔍 Advanced Filters")
     
     # Load initial data for filter options (reduced prefetch; only ~110 total)
-    properties, _ = fetch_properties(limit=150)
-    entities = fetch_entities()
+    with st.spinner("Loading filter options..."):
+        properties, _ = fetch_properties(limit=150)
+    # Defer entity list loading to avoid extra blocking request on startup
+    entities = []
     
     # Filter Presets
     with st.expander("📌 Filter Presets", expanded=False):
@@ -578,13 +580,19 @@ with st.sidebar:
     if properties:
         df_props = pd.DataFrame(properties)
         
-        # Entity Filter with Search
-        if entities:
-            st.subheader("🏢 Entity Filter")
-            entity_search = st.text_input("Search entities...", key="entity_search")
-            entity_options = ["All"] + sorted([e.get('entity_name', 'Unknown') for e in entities 
-                                             if e.get('entity_name') and (not entity_search or entity_search.lower() in e.get('entity_name', '').lower())])
-            selected_entity = st.selectbox("Select Entity", entity_options, key="filter_entity")
+        # Entity Filter (lazy-loaded to prevent initial hang)
+        st.subheader("🏢 Entity Filter")
+        enable_entity_filter = st.checkbox("Load entity list (optional)", key="enable_entity_filter")
+        if enable_entity_filter:
+            with st.spinner("Loading entities..."):
+                entities = fetch_entities()
+            if entities:
+                entity_search = st.text_input("Search entities...", key="entity_search")
+                entity_options = ["All"] + sorted([e.get('entity_name', 'Unknown') for e in entities
+                                                    if e.get('entity_name') and (not entity_search or entity_search.lower() in e.get('entity_name', '').lower())])
+                selected_entity = st.selectbox("Select Entity", entity_options, key="filter_entity")
+            else:
+                selected_entity = "All"
         else:
             selected_entity = "All"
         
@@ -733,7 +741,7 @@ if 'filter_sort_order' in st.session_state:
 
 # Load data with filters
 with st.spinner("Loading data..."):
-    properties, next_cursor = fetch_properties(filters=filter_params, limit=500)
+    properties, next_cursor = fetch_properties(filters=filter_params, limit=200)
     stats = fetch_statistics()
     entities = fetch_entities()
 
