@@ -218,7 +218,13 @@ def fetch_properties(filters: Optional[Dict[str, Any]] = None, cursor: Optional[
             if filters.get('sort_order'):
                 params['sort_order'] = filters['sort_order']
         
-        response = requests.get(f"{API_URL}/api/v1/properties", params=params, timeout=10)
+        # Increase timeout to accommodate slower API responses on large queries
+        # Use separate connect/read timeouts: (connect_timeout, read_timeout)
+        response = requests.get(
+            f"{API_URL}/api/v1/properties",
+            params=params,
+            timeout=(5, 45)
+        )
         if response.status_code == 200:
             data = response.json()
             return data.get("properties", []), data.get("next_cursor")
@@ -536,8 +542,8 @@ with st.sidebar:
     # Enhanced Filters Section
     st.header("🔍 Advanced Filters")
     
-    # Load initial data for filter options
-    properties, _ = fetch_properties(limit=1000)  # Get more for filter options
+    # Load initial data for filter options (reduced prefetch; only ~110 total)
+    properties, _ = fetch_properties(limit=150)
     entities = fetch_entities()
     
     # Filter Presets

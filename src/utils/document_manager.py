@@ -25,6 +25,7 @@ import PyPDF2
 import pytesseract
 from pdf2image import convert_from_path, convert_from_bytes
 from supabase import create_client, Client
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -39,9 +40,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
+# Load .env so local dev works without exporting env vars
+load_dotenv()
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
+# Accept either SUPABASE_ANON_KEY or SUPABASE_KEY (and fallback to service role key)
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_ANON_KEY")
+    or os.getenv("SUPABASE_KEY")
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+)
+supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
 
 # ================================================================================
 # DATA MODELS
@@ -104,7 +113,11 @@ class DocumentStorageService:
     def __init__(self):
         self.supabase = supabase
         self.bucket_name = "tax-documents"
-        self._ensure_bucket()
+        # Only attempt bucket ops if Supabase is configured
+        if self.supabase:
+            self._ensure_bucket()
+        else:
+            logger.warning("Supabase client not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
     
     def _ensure_bucket(self):
         """Ensure storage bucket exists"""
@@ -128,6 +141,8 @@ class DocumentStorageService:
     ) -> Dict[str, Any]:
         """Upload document to Supabase storage"""
         try:
+            if not self.supabase:
+                raise HTTPException(status_code=500, detail="Supabase not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
             # Generate unique storage path
             file_extension = Path(file_name).suffix
             storage_name = f"{property_id}/{datetime.now().year}/{uuid4()}{file_extension}"
@@ -177,6 +192,8 @@ class DocumentStorageService:
     async def download_document(self, document_id: str) -> Tuple[bytes, str]:
         """Download document from storage"""
         try:
+            if not self.supabase:
+                raise HTTPException(status_code=500, detail="Supabase not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
             # Get document metadata
             result = self.supabase.table("tax_documents").select("*").eq("id", document_id).execute()
             
@@ -199,6 +216,8 @@ class DocumentStorageService:
     async def delete_document(self, document_id: str) -> bool:
         """Delete document from storage and database"""
         try:
+            if not self.supabase:
+                raise HTTPException(status_code=500, detail="Supabase not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
             # Get document metadata
             result = self.supabase.table("tax_documents").select("*").eq("id", document_id).execute()
             
@@ -562,6 +581,8 @@ class DocumentSearchService:
     async def search_documents(self, search_params: DocumentSearch) -> List[Dict[str, Any]]:
         """Search documents with filters"""
         try:
+            if not self.supabase:
+                raise HTTPException(status_code=500, detail="Supabase not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
             query = self.supabase.table("tax_documents").select("*")
             
             # Apply filters
@@ -620,6 +641,8 @@ class DocumentSearchService:
     async def get_document_summary(self, property_id: Optional[str] = None) -> Dict[str, Any]:
         """Get document summary statistics"""
         try:
+            if not self.supabase:
+                raise HTTPException(status_code=500, detail="Supabase not configured. Set SUPABASE_ANON_KEY or SUPABASE_KEY.")
             if property_id:
                 result = self.supabase.rpc("get_property_document_summary", {
                     "prop_id": property_id
@@ -658,6 +681,30 @@ storage_service = DocumentStorageService()
 ocr_service = OCRService()
 extraction_service = DocumentExtractionService()
 search_service = DocumentSearchService()
+
+@app.get("/api/documents/health")
+async def documents_health():
+    """Health check for document storage and database access"""
+    configured = supabase is not None
+    status: Dict[str, Any] = {"supabase_configured": configured}
+    if not configured:
+        return JSONResponse(status_code=500, content={**status, "error": "Supabase not configured"})
+    try:
+        # Bucket check
+        buckets = supabase.storage.list_buckets()
+        status["bucket_exists"] = any(b.get("name") == storage_service.bucket_name for b in buckets)
+    except Exception as e:
+        status["bucket_exists"] = False
+        status["bucket_error"] = str(e)
+    try:
+        # DB check
+        _ = supabase.table("tax_documents").select("id").limit(1).execute()
+        status["db_accessible"] = True
+    except Exception as e:
+        status["db_accessible"] = False
+        status["db_error"] = str(e)
+    http_status = 200 if status.get("bucket_exists") and status.get("db_accessible") else 500
+    return JSONResponse(status_code=http_status, content=status)
 
 @app.post("/api/documents/upload")
 async def upload_document(
