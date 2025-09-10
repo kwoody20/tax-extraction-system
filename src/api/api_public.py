@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Request, Res
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse, JSONResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 import logging
 
@@ -83,7 +83,9 @@ CONCURRENT_EXTRACTIONS = int(os.getenv("CONCURRENT_EXTRACTIONS", "5"))
 ENABLE_WEBHOOKS = os.getenv("ENABLE_WEBHOOKS", "false").lower() == "true"
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 API_VERSION = "v1"  # Current API version
-ENABLE_RATE_LIMIT = os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true" and HAS_RATE_LIMIT
+# Allow both ENABLE_RATE_LIMIT and ENABLE_RATE_LIMITING for compatibility
+_rate_limit_env = os.getenv("ENABLE_RATE_LIMIT") or os.getenv("ENABLE_RATE_LIMITING") or "true"
+ENABLE_RATE_LIMIT = _rate_limit_env.lower() == "true" and HAS_RATE_LIMIT
 
 # Lazy initialization with connection pooling
 _pooled_client: Optional[PooledSupabasePropertyTaxClient] = None
@@ -329,7 +331,8 @@ class ExtractionRequest(BaseModel):
     webhook_url: Optional[str] = Field(None, description="Webhook URL for completion notification")
     priority: Optional[str] = Field("normal", description="Priority: low, normal, high")
     
-    @validator('tax_bill_link')
+    @field_validator('tax_bill_link')
+    @classmethod
     def validate_url(cls, v):
         if not v.startswith(('http://', 'https://')):
             raise ValueError('Invalid URL format')
@@ -588,89 +591,74 @@ async def get_extraction_status_optimized() -> Dict[str, Any]:
 @cached_result(ttl=300)  # Cache for 5 minutes
 async def get_jurisdictions_optimized() -> Dict[str, Any]:
     """
-    Get jurisdictions with counts using a single aggregated query.
+    Get jurisdictions from the jurisdictions table and enrich with property counts
+    and support information from the cloud extractor map.
     """
     try:
-        # Single query to get jurisdictions with counts
-        jurisdiction_query = """
-        SELECT 
-            jurisdiction,
-            COUNT(*) as count,
-            COUNT(CASE WHEN amount_due > 0 THEN 1 END) as extracted_count
-        FROM properties
-        WHERE jurisdiction IS NOT NULL
-        GROUP BY jurisdiction
-        ORDER BY count DESC
-        """
-        
-        # Try RPC first
-        result = await monitored_query(
-            "jurisdiction_stats_rpc",
-            lambda: supabase.rpc("get_jurisdiction_stats", {}).execute()
-            if hasattr(supabase, 'rpc') else None
+        # 1) Fetch canonical jurisdictions from jurisdictions table
+        jur_result = await monitored_query(
+            "jurisdictions_table",
+            lambda: supabase
+                .table("jurisdictions")
+                .select("jurisdiction_name,state,jurisdiction_type,tax_website_url,is_active")
+                .execute()
         )
-        
-        if not result or not result.data:
-            # Fallback to regular query
-            result = await monitored_query(
-                "jurisdictions",
-                lambda: supabase.table("properties").select("jurisdiction").execute()
-            )
-            
-            # Group and count in memory
-            jurisdiction_counts = {}
-            for prop in (result.data if result else []):
-                jur = prop.get("jurisdiction")
-                if jur:
-                    jurisdiction_counts[jur] = jurisdiction_counts.get(jur, 0) + 1
-            
-            jurisdictions_data = [
-                {"jurisdiction": k, "count": v}
-                for k, v in jurisdiction_counts.items()
-            ]
-        else:
-            jurisdictions_data = result.data
-        
-        # Get supported jurisdictions
-        supported_list = cloud_extractor.get_supported_jurisdictions()
-        
-        # Process jurisdictions
-        jurisdictions = []
-        for item in jurisdictions_data:
-            jur = item.get("jurisdiction")
-            if not jur:
+        jurisdictions_rows = jur_result.data if jur_result else []
+
+        # 2) Count properties per jurisdiction name (in-memory aggregation)
+        prop_result = await monitored_query(
+            "properties_for_counts",
+            lambda: supabase
+                .table("properties")
+                .select("jurisdiction,amount_due")
+                .execute()
+        )
+        jurisdiction_counts: Dict[str, int] = {}
+        extracted_counts: Dict[str, int] = {}
+        for prop in (prop_result.data if prop_result else []):
+            jn = (prop.get("jurisdiction") or "").strip()
+            if not jn:
                 continue
-            
-            # Check if supported
-            is_supported = any(
-                key.lower() in jur.lower()
-                for key in supported_list.keys()
-            )
-            
-            # Get confidence if supported
+            jurisdiction_counts[jn] = jurisdiction_counts.get(jn, 0) + 1
+            amt = prop.get("amount_due")
+            if isinstance(amt, (int, float)) and amt > 0:
+                extracted_counts[jn] = extracted_counts.get(jn, 0) + 1
+
+        # 3) Annotate with cloud extractor supported jurisdictions
+        supported_map = cloud_extractor.get_supported_jurisdictions()
+
+        jurisdictions = []
+        for row in jurisdictions_rows:
+            name = row.get("jurisdiction_name")
+            if not name:
+                continue
+            # Determine support/confidence via substring match
+            is_supported = any(k.lower() in name.lower() for k in supported_map.keys())
             confidence = None
             if is_supported:
-                for key, info in supported_list.items():
-                    if key.lower() in jur.lower():
+                for k, info in supported_map.items():
+                    if k.lower() in name.lower():
                         confidence = info.get("confidence", "medium")
                         break
-            
+
             jurisdictions.append({
-                "name": jur,
+                "name": name,
+                "state": row.get("state"),
+                "jurisdiction_type": row.get("jurisdiction_type"),
+                "tax_website_url": row.get("tax_website_url"),
+                "is_active": row.get("is_active"),
                 "supported": is_supported,
                 "confidence": confidence,
-                "count": item.get("count", 0),
-                "extracted_count": item.get("extracted_count", 0)
+                "count": jurisdiction_counts.get(name, 0),
+                "extracted_count": extracted_counts.get(name, 0),
             })
-        
-        supported_count = sum(1 for j in jurisdictions if j["supported"])
-        
+
+        supported_count = sum(1 for j in jurisdictions if j.get("supported"))
         return {
             "jurisdictions": jurisdictions,
             "total": len(jurisdictions),
             "supported_count": supported_count
         }
-        
     except Exception as e:
         logger.error(f"Jurisdictions query error: {e}")
         raise
@@ -752,7 +740,9 @@ async def perform_extraction(property_data: Dict[str, Any], webhook_url: Optiona
     """
     Perform extraction using cloud-compatible extractor.
     """
-    property_id = property_data.get("id", "")
+    # Use logical property_id where available; fallback to DB PK id only for internal use
+    property_pk = property_data.get("id", "")
+    property_logical_id = property_data.get("property_id") or property_pk
     
     async with extraction_semaphore:
         try:
@@ -772,7 +762,7 @@ async def perform_extraction(property_data: Dict[str, Any], webhook_url: Optiona
             if result.get("success"):
                 response = ExtractionResponse(
                     success=True,
-                    property_id=property_id,
+                    property_id=property_logical_id,
                     jurisdiction=property_data.get("jurisdiction", ""),
                     tax_amount=result.get("tax_amount"),
                     property_address=result.get("property_address"),
@@ -797,7 +787,7 @@ async def perform_extraction(property_data: Dict[str, Any], webhook_url: Optiona
             else:
                 response = ExtractionResponse(
                     success=False,
-                    property_id=property_id,
+                    property_id=property_logical_id,
                     jurisdiction=property_data.get("jurisdiction", ""),
                     extraction_date=datetime.now().isoformat(),
                     error_message=result.get("error", "Extraction failed")
@@ -815,11 +805,13 @@ async def perform_extraction(property_data: Dict[str, Any], webhook_url: Optiona
             logger.error(f"Extraction error for {property_id}: {e}")
             return ExtractionResponse(
                 success=False,
-                property_id=property_id,
+                property_id=property_logical_id,
                 jurisdiction=property_data.get("jurisdiction", ""),
                 extraction_date=datetime.now().isoformat(),
                 error_message=str(e)
             )
+
+
 
 async def perform_batch_extraction_optimized(properties: List[Dict[str, Any]], webhook_url: Optional[str] = None, parallel: bool = True):
     """
@@ -864,7 +856,7 @@ async def perform_batch_extraction_optimized(properties: List[Dict[str, Any]], w
             
             # Prepare extraction record
             extraction_records.append({
-                "property_id": prop.get("id"),
+                "property_id": prop.get("property_id") or prop.get("id"),
                 "tax_amount": result.tax_amount,
                 "extraction_date": result.extraction_date,
                 "extraction_status": "success",
@@ -989,7 +981,7 @@ async def get_properties(
     jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
     state: Optional[str] = Query(None, description="Filter by state"),
     needs_extraction: Optional[bool] = Query(None, description="Filter by extraction status"),
-    entity_id: Optional[str] = Query(None, description="Filter by entity ID"),
+    entity_id: Optional[str] = Query(None, description="Filter by entity ID (entities.entity_id)"),
     amount_due_min: Optional[float] = Query(None, description="Minimum amount due"),
     amount_due_max: Optional[float] = Query(None, description="Maximum amount due"),
     due_date_before: Optional[str] = Query(None, description="Due date before (ISO format)"),
@@ -1019,7 +1011,8 @@ async def get_properties(
         if state:
             query = query.eq("state", state)
         if entity_id:
-            query = query.eq("entity_id", entity_id)
+            # properties.parent_entity_id references entities.entity_id
+            query = query.eq("parent_entity_id", entity_id)
         if needs_extraction is not None:
             if needs_extraction:
                 query = query.or_("amount_due.is.null,amount_due.eq.0")
@@ -1029,10 +1022,11 @@ async def get_properties(
             query = query.gte("amount_due", amount_due_min)
         if amount_due_max is not None:
             query = query.lte("amount_due", amount_due_max)
+        # Properties table uses tax_due_date
         if due_date_before:
-            query = query.lte("due_date", due_date_before)
+            query = query.lte("tax_due_date", due_date_before)
         if due_date_after:
-            query = query.gte("due_date", due_date_after)
+            query = query.gte("tax_due_date", due_date_after)
         
         # Apply sorting
         if sort_order == "desc":
@@ -1096,10 +1090,10 @@ async def extract_property_tax(request: Request, extraction_request: ExtractionR
             if result.property_address:
                 update_data["property_address"] = result.property_address
             
-            # Use async update
+            # Update by logical property_id
             await monitored_query(
-                "update_property",
-                lambda: supabase.table("properties").update(update_data).eq("id", extraction_request.property_id).execute()
+                "update_property_by_property_id",
+                lambda: supabase.table("properties").update(update_data).eq("property_id", extraction_request.property_id).execute()
             )
             
             # Also store in extractions table if it exists
@@ -1115,7 +1109,7 @@ async def extract_property_tax(request: Request, extraction_request: ExtractionR
                     "store_extraction",
                     lambda: supabase.table("tax_extractions").insert(extraction_record).execute()
                 )
-            except:
+            except Exception:
                 pass  # Table might not exist
                 
         except Exception as e:
@@ -1140,16 +1134,17 @@ async def extract_batch(
             detail=f"Maximum {MAX_BATCH_SIZE} properties allowed per batch"
         )
     
-    # Get properties from database
+    # Get properties from database (support both id and property_id inputs)
     try:
+        # Fetch strictly by logical property_id
         result = await monitored_query(
-            "get_batch_properties",
-            lambda: supabase.table("properties").select("*").in_("id", batch_request.property_ids).execute()
+            "get_batch_properties_by_property_id",
+            lambda: supabase.table("properties").select("*").in_("property_id", batch_request.property_ids).execute()
         )
         properties = result.data if result else []
-        
+
         if not properties:
-            raise HTTPException(status_code=404, detail="No properties found")
+            raise HTTPException(status_code=404, detail="No properties found for provided property_ids")
         
         # Filter for supported jurisdictions
         supported_props = []

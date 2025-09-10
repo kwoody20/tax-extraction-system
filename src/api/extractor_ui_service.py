@@ -58,7 +58,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+# Prefer anon key if provided, fallback to SUPABASE_KEY to match .env
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
 
 # ================================================================================
@@ -285,11 +286,20 @@ class ExtractionJobManager:
         """Save extraction result to Supabase"""
         try:
             # Prepare data for Supabase
+            # Ensure we store the logical property_id (not the PK id)
+            logical_property_id = None
+            try:
+                # job.property_id currently stores the DB id when created from properties
+                res = supabase.table("properties").select("property_id").eq("id", job.property_id).single().execute()
+                if res and res.data and res.data.get("property_id"):
+                    logical_property_id = res.data["property_id"]
+            except Exception:
+                pass
             extraction_data = {
-                "property_id": job.property_id,
+                "property_id": logical_property_id or job.property_id,
                 "extraction_date": datetime.now().isoformat(),
                 "extraction_method": job.extraction_method or "selenium",
-                "status": job.status,
+                "extraction_status": job.status,
                 "amount_due": result.get("amount_due"),
                 "due_date": result.get("due_date"),
                 "tax_year": result.get("tax_year"),
@@ -441,10 +451,27 @@ async def start_extraction(request: ExtractionRequest):
         properties = []
         
         if request.property_ids:
-            # Extract specific properties
+            # Extract specific properties (support both id and property_id)
             if supabase:
-                response = supabase.table("properties").select("*").in_("id", request.property_ids).execute()
-                properties = response.data
+                props = []
+                try:
+                    r1 = supabase.table("properties").select("*").in_("id", request.property_ids).execute()
+                    if r1 and r1.data:
+                        props.extend(r1.data)
+                except Exception:
+                    pass
+                try:
+                    r2 = supabase.table("properties").select("*").in_("property_id", request.property_ids).execute()
+                    if r2 and r2.data:
+                        props.extend(r2.data)
+                except Exception:
+                    pass
+                # Deduplicate by PK id
+                merged = {}
+                for p in props:
+                    if isinstance(p, dict) and p.get("id"):
+                        merged[p["id"]] = p
+                properties = list(merged.values())
         elif request.entity_id:
             # Extract all properties for an entity
             if supabase:

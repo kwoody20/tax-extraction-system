@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS jurisdictions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes
-CREATE INDEX idx_jurisdictions_name ON jurisdictions(jurisdiction_name);
-CREATE INDEX idx_jurisdictions_state ON jurisdictions(state);
-CREATE INDEX idx_jurisdictions_type ON jurisdictions(jurisdiction_type);
-CREATE INDEX idx_jurisdictions_active ON jurisdictions(is_active);
+-- Create indexes (idempotent)
+CREATE INDEX IF NOT EXISTS idx_jurisdictions_name ON jurisdictions(jurisdiction_name);
+CREATE INDEX IF NOT EXISTS idx_jurisdictions_state ON jurisdictions(state);
+CREATE INDEX IF NOT EXISTS idx_jurisdictions_type ON jurisdictions(jurisdiction_type);
+CREATE INDEX IF NOT EXISTS idx_jurisdictions_active ON jurisdictions(is_active);
 
 -- Add comments
 COMMENT ON TABLE jurisdictions IS 'Tax jurisdictions and their extraction configurations';

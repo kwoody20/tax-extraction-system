@@ -22,15 +22,15 @@ CREATE TABLE IF NOT EXISTS properties (
         REFERENCES entities(entity_id) ON DELETE SET NULL
 );
 
--- Create indexes for performance
-CREATE INDEX idx_properties_property_id ON properties(property_id);
-CREATE INDEX idx_properties_property_name ON properties(property_name);
-CREATE INDEX idx_properties_parent_entity_id ON properties(parent_entity_id);
-CREATE INDEX idx_properties_parent_entity_name ON properties(parent_entity_name);
-CREATE INDEX idx_properties_state ON properties(state);
-CREATE INDEX idx_properties_jurisdiction ON properties(jurisdiction);
-CREATE INDEX idx_properties_property_type ON properties(property_type);
-CREATE INDEX idx_properties_account_number ON properties(account_number);
+-- Create indexes for performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_properties_property_id ON properties(property_id);
+CREATE INDEX IF NOT EXISTS idx_properties_property_name ON properties(property_name);
+CREATE INDEX IF NOT EXISTS idx_properties_parent_entity_id ON properties(parent_entity_id);
+CREATE INDEX IF NOT EXISTS idx_properties_parent_entity_name ON properties(parent_entity_name);
+CREATE INDEX IF NOT EXISTS idx_properties_state ON properties(state);
+CREATE INDEX IF NOT EXISTS idx_properties_jurisdiction ON properties(jurisdiction);
+CREATE INDEX IF NOT EXISTS idx_properties_property_type ON properties(property_type);
+CREATE INDEX IF NOT EXISTS idx_properties_account_number ON properties(account_number);
 
 -- Add comments
 COMMENT ON TABLE properties IS 'Individual properties with tax information';

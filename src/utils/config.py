@@ -88,11 +88,18 @@ class ConfigManager:
         
         # Override with environment variables
         env_mappings = {
+            # Primary env vars
             'TAX_EXTRACTOR_HEADLESS': ('headless', lambda x: x.lower() == 'true'),
             'TAX_EXTRACTOR_BROWSER': ('browser_type', str),
             'TAX_EXTRACTOR_MAX_WORKERS': ('max_workers', int),
             'TAX_EXTRACTOR_LOG_LEVEL': ('log_level', str),
             'TAX_EXTRACTOR_OUTPUT_DIR': ('output_dir', str),
+            # Compatible fallbacks to match .env
+            'HEADLESS_BROWSER': ('headless', lambda x: x.lower() == 'true'),
+            'MAX_WORKERS': ('max_workers', int),
+            'LOG_LEVEL': ('log_level', str),
+            'RESULTS_DIR': ('output_dir', str),
+            'OUTPUT_DIR': ('output_dir', str),
         }
         
         for env_key, (config_key, converter) in env_mappings.items():

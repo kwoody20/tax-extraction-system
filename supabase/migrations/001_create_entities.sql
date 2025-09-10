@@ -20,12 +20,12 @@ CREATE TABLE IF NOT EXISTS entities (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for performance
-CREATE INDEX idx_entities_entity_id ON entities(entity_id);
-CREATE INDEX idx_entities_entity_name ON entities(entity_name);
-CREATE INDEX idx_entities_state ON entities(state);
-CREATE INDEX idx_entities_jurisdiction ON entities(jurisdiction);
-CREATE INDEX idx_entities_entity_type ON entities(entity_type);
+-- Create indexes for performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_entities_entity_id ON entities(entity_id);
+CREATE INDEX IF NOT EXISTS idx_entities_entity_name ON entities(entity_name);
+CREATE INDEX IF NOT EXISTS idx_entities_state ON entities(state);
+CREATE INDEX IF NOT EXISTS idx_entities_jurisdiction ON entities(jurisdiction);
+CREATE INDEX IF NOT EXISTS idx_entities_entity_type ON entities(entity_type);
 
 -- Add comments
 COMMENT ON TABLE entities IS 'Parent entities and organizations that own properties';

@@ -1,0 +1,22 @@
+Foreign keys in schema 'public':
+- public.document_extraction_queue
+    • document_extraction_queue_document_id_fkey: document_id -> public.tax_documents.id
+    • document_extraction_queue_property_id_fkey: property_id -> public.properties.id
+- public.document_payments
+    • document_payments_property_id_fkey: property_id -> public.properties.id
+    • document_payments_document_id_fkey: document_id -> public.tax_documents.id
+- public.document_versions
+    • document_versions_document_id_fkey: document_id -> public.tax_documents.id
+- public.entities
+    • entities_parent_entity_id_fkey: parent_entity_id -> public.entities.entity_id
+- public.entity_relationships
+    • fk_child_entity_rel: child_entity_id -> public.entities.entity_id
+    • fk_parent_entity_rel: parent_entity_id -> public.entities.entity_id
+- public.properties
+    • fk_parent_entity: parent_entity_id -> public.entities.entity_id
+- public.tax_documents
+    • tax_documents_entity_id_fkey: entity_id -> public.entities.id
+    • tax_documents_property_id_fkey: property_id -> public.properties.id
+- public.tax_extractions
+    • fk_extraction_entity: entity_id -> public.entities.entity_id
+    • fk_extraction_property: property_id -> public.properties.property_id

@@ -22,13 +22,13 @@ CREATE TABLE IF NOT EXISTS tax_extractions (
         REFERENCES entities(entity_id) ON DELETE CASCADE
 );
 
--- Create indexes
-CREATE INDEX idx_tax_extractions_property_id ON tax_extractions(property_id);
-CREATE INDEX idx_tax_extractions_entity_id ON tax_extractions(entity_id);
-CREATE INDEX idx_tax_extractions_tax_year ON tax_extractions(tax_year);
-CREATE INDEX idx_tax_extractions_extraction_date ON tax_extractions(extraction_date);
-CREATE INDEX idx_tax_extractions_payment_status ON tax_extractions(payment_status);
-CREATE INDEX idx_tax_extractions_extraction_status ON tax_extractions(extraction_status);
+-- Create indexes (idempotent)
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_property_id ON tax_extractions(property_id);
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_entity_id ON tax_extractions(entity_id);
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_tax_year ON tax_extractions(tax_year);
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_extraction_date ON tax_extractions(extraction_date);
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_payment_status ON tax_extractions(payment_status);
+CREATE INDEX IF NOT EXISTS idx_tax_extractions_extraction_status ON tax_extractions(extraction_status);
 
 -- Add comments
 COMMENT ON TABLE tax_extractions IS 'Historical record of all tax data extractions';
