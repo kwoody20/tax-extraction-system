@@ -1,73 +1,18 @@
 # Railway Deployment Optimization Workflow
 # Place this in .github/workflows/railway-deploy.yml
 
-name: Railway Deploy
+name: Railway Deploy (Disabled)
 
 on:
-  push:
-    branches: [ main, develop, production ]
-  pull_request:
-    branches: [ main ]
+  # Manual only; Railway handles auto-deploy via GitHub integration
   workflow_dispatch:
 
 jobs:
-  check-deployment-needed:
+  no-op:
     runs-on: ubuntu-latest
-    outputs:
-      deploy: ${{ steps.check.outputs.deploy }}
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-
-    - name: Check if deployment is needed
-      id: check
+    - name: Explain
       run: |
-        if ./railway-optimize.sh check; then
-          echo "deploy=true" >> $GITHUB_OUTPUT
-        else
-          echo "deploy=false" >> $GITHUB_OUTPUT
-        fi
-
-  deploy:
-    needs: check-deployment-needed
-    if: needs.check-deployment-needed.outputs.deploy == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Optimize for deployment
-      run: ./railway-optimize.sh optimize
-
-    - name: Install Railway CLI
-      run: |
-        curl -fsSL https://railway.app/install.sh | sh
-        echo "$HOME/.railway/bin" >> $GITHUB_PATH
-
-    - name: Deploy to Railway via CLI
-      env:
-        # Auth token for CLI
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        # Newer CLI resolves project/service via env vars below
-        RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
-        RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE_ID }}
-        RAILWAY_ENVIRONMENT: production
-      run: |
-        echo "Railway CLI version: $(railway --version)"
-        echo "Deploying to Railway project=$RAILWAY_PROJECT, env=$RAILWAY_ENVIRONMENT"
-        # Perform deployment using environment-scoped context
-        railway up --yes
-      # Only runs if relevant files changed
-
-  skip-deploy:
-    needs: check-deployment-needed
-    if: needs.check-deployment-needed.outputs.deploy == 'false'
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Skip deployment
-      run: echo "⏭️ Skipping deployment - no relevant changes detected"
+        echo "Deployment via GitHub Actions is disabled."
+        echo "Railway should be configured to auto-deploy on pushes via the Railway UI (Deploy from GitHub)."
+        echo "This workflow is a manual placeholder and performs no deployment."
