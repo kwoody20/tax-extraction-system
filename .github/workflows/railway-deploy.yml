@@ -42,12 +42,31 @@ jobs:
     - name: Optimize for deployment
       run: ./railway-optimize.sh optimize
 
-    - name: Deploy to Railway
-      uses: railwayapp/railway-deploy@v1
-      with:
-        railway-token: ${{ secrets.RAILWAY_TOKEN }}
-        project-id: ${{ secrets.RAILWAY_PROJECT_ID }}
-        environment: production
+    - name: Install Railway CLI
+      run: curl -fsSL https://railway.app/install.sh | sh
+
+    - name: Deploy to Railway via CLI
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      run: |
+        echo "Authenticating Railway CLI"
+        ~/.railway/bin/railway login --token "$RAILWAY_TOKEN"
+        echo "Deploying to Railway project=$RAILWAY_PROJECT_ID, env=production"
+        # Prefer deploying to a specific service if provided, otherwise default
+        if [ -n "$RAILWAY_SERVICE_ID" ]; then
+          ~/.railway/bin/railway up \
+            --project "$RAILWAY_PROJECT_ID" \
+            --service "$RAILWAY_SERVICE_ID" \
+            --environment production \
+            --yes
+        else
+          ~/.railway/bin/railway up \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment production \
+            --yes
+        fi
       # Only runs if relevant files changed
 
   skip-deploy:

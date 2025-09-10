@@ -1,0 +1,28 @@
+﻿2025-09-10T18:05:36.2605627Z Current runner version: '2.328.0'
+2025-09-10T18:05:36.2640193Z ##[group]Runner Image Provisioner
+2025-09-10T18:05:36.2641448Z Hosted Compute Agent
+2025-09-10T18:05:36.2642473Z Version: 20250829.383
+2025-09-10T18:05:36.2643431Z Commit: 27cb235aab5b0e52e153a26cd86b4742e89dac5d
+2025-09-10T18:05:36.2644831Z Build Date: 2025-08-29T13:48:48Z
+2025-09-10T18:05:36.2645885Z ##[endgroup]
+2025-09-10T18:05:36.2646773Z ##[group]Operating System
+2025-09-10T18:05:36.2647753Z Ubuntu
+2025-09-10T18:05:36.2648692Z 24.04.3
+2025-09-10T18:05:36.2649528Z LTS
+2025-09-10T18:05:36.2650272Z ##[endgroup]
+2025-09-10T18:05:36.2651276Z ##[group]Runner Image
+2025-09-10T18:05:36.2652182Z Image: ubuntu-24.04
+2025-09-10T18:05:36.2652957Z Version: 20250907.24.1
+2025-09-10T18:05:36.2655045Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250907.24/images/ubuntu/Ubuntu2404-Readme.md
+2025-09-10T18:05:36.2657665Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250907.24
+2025-09-10T18:05:36.2659473Z ##[endgroup]
+2025-09-10T18:05:36.2661308Z ##[group]GITHUB_TOKEN Permissions
+2025-09-10T18:05:36.2663960Z Contents: read
+2025-09-10T18:05:36.2665180Z Metadata: read
+2025-09-10T18:05:36.2666218Z Packages: read
+2025-09-10T18:05:36.2667008Z ##[endgroup]
+2025-09-10T18:05:36.2670986Z Secret source: Actions
+2025-09-10T18:05:36.2672837Z Prepare workflow directory
+2025-09-10T18:05:36.3159925Z Prepare all required actions
+2025-09-10T18:05:36.3216683Z Getting action download info
+2025-09-10T18:05:36.5488242Z ##[error]Unable to resolve action railwayapp/railway-deploy, repository not found
