@@ -285,6 +285,7 @@ class HealthResponse(BaseModel):
     api_version: str = API_VERSION
     response_time_ms: Optional[float] = None
     error: Optional[str] = None  # Add error field for health check errors
+    pool_stats: Optional[Dict[str, Any]] = None  # Connection pool statistics
 
 class PropertyResponse(BaseModel):
     property_id: str = Field(..., description="Unique property identifier")

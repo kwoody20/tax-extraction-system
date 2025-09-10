@@ -7,7 +7,7 @@ import pytest
 import asyncio
 import time
 import threading
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 import sys
 import os
 

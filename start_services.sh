@@ -11,13 +11,13 @@ then
     redis-server --daemonize yes
 fi
 
-# Start Celery worker in background
+# Start Celery worker in background (use correct module path)
 echo "Starting Celery worker..."
-celery -A celery_queue worker --loglevel=info --detach
+celery -A src.api.celery_queue worker --loglevel=info --detach
 
 # Start Celery beat scheduler (for periodic tasks)
 echo "Starting Celery beat..."
-celery -A celery_queue beat --loglevel=info --detach
+celery -A src.api.celery_queue beat --loglevel=info --detach
 
 # Optional: Start Flower for Celery monitoring
 # echo "Starting Flower (Celery monitoring)..."
@@ -30,9 +30,9 @@ uvicorn api_public:app --host 0.0.0.0 --port 8000 --reload &
 # Wait for API to start
 sleep 3
 
-# Start Streamlit dashboard
+# Start Streamlit dashboard (wrapper entrypoint)
 echo "Starting Streamlit dashboard..."
-streamlit run dashboard.py --server.port 8501 &
+streamlit run streamlit_app.py --server.port 8501 &
 
 echo ""
 echo "Services started successfully!"

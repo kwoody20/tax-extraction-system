@@ -1,10 +1,10 @@
-# Multi-stage Dockerfile for Tax Extractor API
+# Multi-stage Dockerfile for Tax Extractor API (FastAPI + Supabase)
 FROM python:3.11-slim as builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install build dependencies for wheels used in requirements
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -16,11 +16,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements_api.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements_api.txt
+    pip install --no-cache-dir -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim
@@ -28,15 +28,13 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies
+# Install minimal runtime libraries for lxml
 RUN apt-get update && apt-get install -y \
     libxml2 \
     libxslt1.1 \
-    chromium-driver \
-    chromium \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user and writable dirs
 RUN useradd -m -u 1000 apiuser && \
     mkdir -p /app/output /app/logs /tmp/tax_extractor && \
     chown -R apiuser:apiuser /app /tmp/tax_extractor
@@ -48,7 +46,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --chown=apiuser:apiuser . /app/
 
-# Set environment variables
+# Environment
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app:${PATH}" \
@@ -64,5 +62,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
-# Run the application
-CMD ["uvicorn", "api_service_enhanced:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start API
+CMD ["uvicorn", "api_public:app", "--host", "0.0.0.0", "--port", "8000"]
