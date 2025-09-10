@@ -5,9 +5,10 @@ name: Railway Deploy
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, production ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   check-deployment-needed:
@@ -49,24 +50,17 @@ jobs:
 
     - name: Deploy to Railway via CLI
       env:
+        # Auth token for CLI
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-        RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        # Newer CLI resolves project/service via env vars below
+        RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
+        RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE_ID }}
+        RAILWAY_ENVIRONMENT: production
       run: |
-        echo "Deploying to Railway project=$RAILWAY_PROJECT_ID, env=production"
-        # Prefer deploying to a specific service if provided, otherwise default
-        if [ -n "$RAILWAY_SERVICE_ID" ]; then
-          railway up \
-            --project "$RAILWAY_PROJECT_ID" \
-            --service "$RAILWAY_SERVICE_ID" \
-            --environment production \
-            --yes
-        else
-          railway up \
-            --project "$RAILWAY_PROJECT_ID" \
-            --environment production \
-            --yes
-        fi
+        echo "Railway CLI version: $(railway --version)"
+        echo "Deploying to Railway project=$RAILWAY_PROJECT, env=$RAILWAY_ENVIRONMENT"
+        # Perform deployment using environment-scoped context
+        railway up --yes
       # Only runs if relevant files changed
 
   skip-deploy:
