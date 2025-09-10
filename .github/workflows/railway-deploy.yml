@@ -53,8 +53,6 @@ jobs:
         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
         RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
       run: |
-        echo "Authenticating Railway CLI"
-        railway login --token "$RAILWAY_TOKEN"
         echo "Deploying to Railway project=$RAILWAY_PROJECT_ID, env=production"
         # Prefer deploying to a specific service if provided, otherwise default
         if [ -n "$RAILWAY_SERVICE_ID" ]; then
