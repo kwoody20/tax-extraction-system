@@ -31,8 +31,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.extractors.cloud_extractor import extract_tax_cloud, cloud_extractor
-from src.database.pooled_supabase_client import create_pooled_client, PooledSupabasePropertyTaxClient
-from src.database.supabase_pool import get_sync_pool
+from src.database.supabase_client import SupabasePropertyTaxClient
 
 # Optional imports with graceful fallback
 try:
@@ -85,44 +84,37 @@ API_VERSION = "v1"  # Current API version
 _rate_limit_env = os.getenv("ENABLE_RATE_LIMIT") or os.getenv("ENABLE_RATE_LIMITING") or "true"
 ENABLE_RATE_LIMIT = _rate_limit_env.lower() == "true" and HAS_RATE_LIMIT
 
-# Lazy initialization with connection pooling
-_pooled_client: Optional[PooledSupabasePropertyTaxClient] = None
+# Lazy initialization without connection pooling
+_client: Optional[SupabasePropertyTaxClient] = None
 
-def get_pooled_client() -> PooledSupabasePropertyTaxClient:
-    """Get or create singleton pooled Supabase client with lazy initialization."""
-    global _pooled_client
-    if _pooled_client is None:
+def get_client() -> SupabasePropertyTaxClient:
+    """Get or create singleton Supabase client with lazy initialization."""
+    global _client
+    if _client is None:
         # Read required DB envs lazily to comply with deployment rules
         supabase_url = os.getenv("SUPABASE_URL")
         supabase_key = os.getenv("SUPABASE_KEY")
         if not supabase_url or not supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
-        # Create pooled client with optimized settings
-        _pooled_client = create_pooled_client(
-            min_connections=3,
-            max_connections=15,
-            enable_caching=ENABLE_CACHE
+        # Create regular client without pooling
+        _client = SupabasePropertyTaxClient(
+            url=supabase_url,
+            key=supabase_key
         )
-        logger.info("Initialized pooled Supabase client")
-    return _pooled_client
+        logger.info("Initialized Supabase client (pooling disabled)")
+    return _client
 
-# Create a proxy that will use lazy initialization with pooling
+# Create a proxy that will use lazy initialization
 class SupabaseProxy:
-    """Proxy class for lazy pooled Supabase initialization."""
+    """Proxy class for lazy Supabase initialization."""
     def __getattr__(self, name):
-        client = get_pooled_client()
-        # Get the underlying Supabase client from pool for compatibility
-        if hasattr(client, 'pool'):
-            with client.pool.get_connection() as conn:
-                return getattr(conn, name)
-        return getattr(client, name)
+        client = get_client()
+        return getattr(client.client, name)
     
     def table(self, table_name: str):
-        """Override table method to use pooled connection."""
-        client = get_pooled_client()
-        # Use pooled connection for table operations
-        with client.pool.get_connection() as conn:
-            return conn.table(table_name)
+        """Override table method to use client."""
+        client = get_client()
+        return client.client.table(table_name)
 
 # Use proxy instead of direct client
 supabase = SupabaseProxy()
@@ -192,15 +184,11 @@ async def lifespan(app: FastAPI):
         """Warm up database connections in the background."""
         try:
             await asyncio.sleep(0.5)  # Small delay to let API fully start
-            client = get_pooled_client()
-            # Perform lightweight warm-up query with proper context manager
+            client = get_client()
+            # Perform lightweight warm-up query
             def warm_query():
-                try:
-                    with client.pool.get_connection() as conn:
-                        return conn.table("properties").select("id", count="exact", head=True).limit(1).execute()
-                except:
-                    # Fallback to direct client method
-                    return client.get_properties(limit=1)
+                # Use direct client method
+                return client.get_properties(limit=1)
             
             await asyncio.wait_for(
                 asyncio.get_event_loop().run_in_executor(
@@ -1045,7 +1033,7 @@ async def health_check():
         # Skip database check entirely if client initialization would hang
         # Just try to get the client without actually using it
         try:
-            client = get_pooled_client()
+            client = get_client()
             db_status = "initialized"
             
             # Try to get pool stats without making a query
@@ -1616,7 +1604,7 @@ async def clear_cache(
         
         # Also clear pooled client cache if available
         try:
-            client = get_pooled_client()
+            client = get_client()
             client.clear_cache()
             logger.info("Cleared pooled client cache")
         except Exception:
@@ -1635,7 +1623,7 @@ async def clear_cache(
 async def get_pool_statistics():
     """Get database connection pool statistics."""
     try:
-        client = get_pooled_client()
+        client = get_client()
         pool_stats = client.get_pool_stats()
         cache_stats = client.get_cache_stats()
         
