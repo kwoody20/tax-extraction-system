@@ -70,9 +70,7 @@ aioredis = None
 
 load_dotenv()
 
-# Configuration - loaded lazily
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# Configuration (non-critical toggles may be read at import; DB creds are read lazily)
 # REDIS_URL = os.getenv("REDIS_URL")  # Redis disabled for this deployment
 REDIS_URL = None
 ENABLE_METRICS = os.getenv("ENABLE_METRICS", "true").lower() == "true" and HAS_METRICS
@@ -94,7 +92,10 @@ def get_pooled_client() -> PooledSupabasePropertyTaxClient:
     """Get or create singleton pooled Supabase client with lazy initialization."""
     global _pooled_client
     if _pooled_client is None:
-        if not SUPABASE_URL or not SUPABASE_KEY:
+        # Read required DB envs lazily to comply with deployment rules
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY")
+        if not supabase_url or not supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         # Create pooled client with optimized settings
         _pooled_client = create_pooled_client(

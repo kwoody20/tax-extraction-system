@@ -37,13 +37,21 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)  # Module-level initializat
 ```json
 {
   "deploy": {
-    "startCommand": "uvicorn api_public:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "uvicorn api_public:app --host 0.0.0.0 --port ${PORT:-8000}"
+  }
+}
+```
+Alternative (Nixpacks): If the `uvicorn` CLI isn’t on PATH at runtime, it’s safe to use the venv explicitly:
+```json
+{
+  "deploy": {
+    "startCommand": "/opt/venv/bin/python -m uvicorn api_public:app --host 0.0.0.0 --port ${PORT:-8000}"
   }
 }
 ```
 **⚠️ NEVER:** 
 - Change from `api_public:app` to another file
-- Remove the `$PORT` variable usage (Railway sets this automatically)
+- Remove the `${PORT:-8000}` variable syntax
 - Add module-level database connections
 
 ### 3. Dependencies (requirements-railway.txt)
