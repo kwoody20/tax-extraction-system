@@ -178,43 +178,45 @@ if ENABLE_METRICS:
     active_connections = Gauge('active_connections', 'Active database connections')
     queue_size = Gauge('extraction_queue_size', 'Extraction queue size')
 
+WARM_DB_ON_STARTUP = os.getenv("WARM_DB_ON_STARTUP", "false").lower() == "true"
+
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("API starting up with connection pooling and enhanced optimizations...")
-    
-    # Initialize pooled client (lazy initialization)
-    try:
-        client = get_pooled_client()
-        # Warm up the connection pool
-        test_result = client.get_properties(limit=1)
-        logger.info(f"Database connection pool initialized and warmed up")
-        
-        # Log pool stats
-        stats = client.get_pool_stats()
-        logger.info(f"Pool stats: {stats.get('idle')} idle, {stats.get('created')} total connections")
-    except Exception as e:
-        logger.error(f"Failed to initialize pooled database connection: {e}")
-    
+    logger.info("API starting up; WARM_DB_ON_STARTUP=%s", WARM_DB_ON_STARTUP)
+
+    # Optionally warm up the connection pool (disabled by default for pure liveness)
+    if WARM_DB_ON_STARTUP:
+        try:
+            client = get_pooled_client()
+            # Warm up the connection pool
+            _ = client.get_properties(limit=1)
+            logger.info("Database connection pool initialized and warmed up")
+            # Log pool stats
+            stats = client.get_pool_stats()
+            logger.info("Pool stats: %s idle, %s total", stats.get('idle'), stats.get('created'))
+        except Exception as e:
+            logger.error(f"Failed to initialize pooled database connection: {e}")
+
     # Redis disabled - using memory cache only
     global redis_client
     redis_client = None
     logger.info("Using memory cache (Redis disabled)")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("API shutting down...")
-    
-    # Clean up pooled connections
-    try:
-        client = get_pooled_client()
-        client.close()
-        logger.info("Connection pool closed successfully")
-    except Exception as e:
-        logger.error(f"Error closing connection pool: {e}")
-    
+
+    # Clean up pooled connections (only if created)
+    if _pooled_client is not None:
+        try:
+            _pooled_client.close()
+            logger.info("Connection pool closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing connection pool: {e}")
+
     # Shutdown thread executor
     db_executor.shutdown(wait=True)
 

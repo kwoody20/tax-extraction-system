@@ -37,13 +37,13 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)  # Module-level initializat
 ```json
 {
   "deploy": {
-    "startCommand": "uvicorn api_public:app --host 0.0.0.0 --port ${PORT:-8000}"
+    "startCommand": "uvicorn api_public:app --host 0.0.0.0 --port $PORT"
   }
 }
 ```
 **⚠️ NEVER:** 
 - Change from `api_public:app` to another file
-- Remove the `${PORT:-8000}` variable syntax
+- Remove the `$PORT` variable usage (Railway sets this automatically)
 - Add module-level database connections
 
 ### 3. Dependencies (requirements-railway.txt)
