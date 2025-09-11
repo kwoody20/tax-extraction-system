@@ -112,13 +112,13 @@ Before pushing any changes that touch api_public.py:
    # Should only see it inside get_supabase_client function
    ```
 
-4. **Test Health Endpoint**:
-   ```bash
-   # Start locally
-   uvicorn api_public:app --reload
-   # In another terminal
-   curl http://localhost:8000/health
-   ```
+4. **Test Liveness Endpoint**:
+```bash
+# Start locally
+uvicorn api_public:app --reload
+# In another terminal
+curl http://localhost:8000/livez
+```
 
 ## 🔒 GIT HOOKS RECOMMENDATION
 
@@ -152,7 +152,7 @@ CRITICAL: When modifying api_public.py:
 2. ALWAYS use the existing SupabaseProxy pattern
 3. NEVER check environment variables at module import
 4. Read DEPLOYMENT_CRITICAL.md before making changes
-5. The health endpoint must work without database connection
+5. Platform should use a pure liveness endpoint (`/livez`) that never touches the DB; `/health` may perform readiness/DB checks but must not crash and should return JSON even when DB is unavailable
 ```
 
 ## 🚀 DEPLOYMENT COMMANDS
@@ -166,7 +166,7 @@ git push origin main
 
 # Monitor deployment
 # Check Railway dashboard for logs
-# Verify health: curl https://tax-extraction-system-production.up.railway.app/health
+# Verify liveness: curl https://tax-extraction-system-production.up.railway.app/livez
 ```
 
 ## 🆘 EMERGENCY ROLLBACK
@@ -185,7 +185,8 @@ git push --force origin main
 ## 📊 MONITORING
 
 Always check these after deployment:
-1. Health endpoint: `/health`
+1. Liveness endpoint: `/livez` (platform health)
+2. Health endpoint: `/health` (readiness/DB)
 2. API docs: `/docs`
 3. Railway logs for startup errors
 4. Test a simple GET endpoint before database operations

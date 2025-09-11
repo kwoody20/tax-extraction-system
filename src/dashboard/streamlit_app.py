@@ -260,7 +260,8 @@ def fetch_entities(search: Optional[str] = None, limit: int = 100):
 def check_api_health():
     """Check API health status."""
     try:
-        response = requests.get(f"{API_URL}/health", timeout=5)
+        # Allow more time on cold starts and cross-cloud latency
+        response = requests.get(f"{API_URL}/health", timeout=12)
         data = response.json()
         return response.status_code, data
     except Exception:

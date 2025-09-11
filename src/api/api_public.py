@@ -136,6 +136,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Record app start time for liveness/uptime reporting
+APP_START_TIME = time.time()
+
 # Initialize rate limiter if available
 if HAS_RATE_LIMIT and ENABLE_RATE_LIMIT:
     limiter = Limiter(key_func=get_remote_address)
@@ -288,6 +291,12 @@ class HealthResponse(BaseModel):
     response_time_ms: Optional[float] = None
     error: Optional[str] = None  # Add error field for health check errors
     pool_stats: Optional[Dict[str, Any]] = None  # Connection pool statistics
+
+class LivenessResponse(BaseModel):
+    status: str = "ok"
+    timestamp: str
+    api_version: str = API_VERSION
+    uptime_seconds: float
 
 class PropertyResponse(BaseModel):
     property_id: str = Field(..., description="Unique property identifier")
@@ -904,6 +913,16 @@ def rate_limit(limits: str):
             return func
         return decorator
 
+@app.get("/livez", response_model=LivenessResponse, tags=["System"])
+async def liveness_check():
+    """Pure liveness check — no database or external dependencies."""
+    return LivenessResponse(
+        status="ok",
+        timestamp=datetime.now().isoformat(),
+        api_version=API_VERSION,
+        uptime_seconds=max(0.0, time.time() - APP_START_TIME),
+    )
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """Check API and database health with connection pool status."""
@@ -920,7 +939,7 @@ async def health_check():
                 db_executor,
                 lambda: client.get_properties(limit=1)
             ),
-            timeout=5.0
+            timeout=12.0
         )
         db_status = "connected" if result is not None else "disconnected"
         status = "healthy" if db_status == "connected" else "unhealthy"

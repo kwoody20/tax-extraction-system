@@ -76,7 +76,7 @@ We've implemented **smart deployment filtering** that only triggers redeploys wh
 - [x] Supabase added to requirements.txt
 - [x] Procfile for multiple services
 - [x] Environment variables documented
-- [x] Health check endpoint available (/health)
+- [x] Liveness endpoint available (/livez)
 
 ## 🚀 Quick Deploy Instructions
 
@@ -270,11 +270,11 @@ railway logs
 
 ### Step 2: Test API Endpoints
 ```bash
-# Test health check
-curl https://your-app.railway.app/health
+# Test liveness check (platform health)
+curl https://your-app.railway.app/livez
 
 # Expected response:
-# {"status": "healthy", "database": "connected", ...}
+# {"status": "ok", "api_version": "v1", ...}
 
 # Test API docs
 open https://your-app.railway.app/docs
@@ -286,7 +286,8 @@ curl https://your-app.railway.app/api/v1/properties?limit=1
 ### Step 3: Verify Available Endpoints
 Your Railway app should have these endpoints working:
 
-1. **Health Check**: `/health`
+1. **Liveness**: `/livez`
+2. **Health Check**: `/health`
 2. **API Documentation**: `/docs` and `/redoc`
 3. **Properties**: `/api/v1/properties`
 4. **Entities**: `/api/v1/entities`
@@ -296,6 +297,7 @@ Your Railway app should have these endpoints working:
 ## 🎉 Success Indicators
 
 You'll know deployment is successful when:
+- ✅ `/livez` returns `{"status": "ok"}`
 - ✅ `/health` returns `{"status": "healthy"}`
 - ✅ `/docs` shows FastAPI documentation
 - ✅ Can fetch properties from Supabase (102 properties)

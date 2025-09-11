@@ -91,8 +91,8 @@ railway status
 # View logs
 railway logs
 
-# Test health endpoint
-curl https://your-app.railway.app/health
+# Test liveness endpoint (platform health)
+curl https://your-app.railway.app/livez
 
 # Test API docs
 open https://your-app.railway.app/docs
@@ -146,7 +146,8 @@ API_URL=https://tax-extraction-system-production.up.railway.app
 ## 📝 Available API Endpoints
 
 ### Core Endpoints (LIVE)
-1. **Health Check**: `/health`
+1. **Liveness**: `/livez`
+2. **Health Check**: `/health`
 2. **API Documentation**: `/docs` and `/redoc`
 3. **Properties**: 
    - GET `/api/v1/properties` - List all properties
