@@ -1037,59 +1037,39 @@ async def health_check():
     supported_jurisdictions = list(cloud_extractor.get_supported_jurisdictions().keys())
     pool_info = {}
     
+    # Start with API healthy, degrade if DB has issues
+    status = "healthy"
+    db_status = "unknown"
+    
     try:
-        # Quick health check - use a simple count query with limit
-        # This is much faster than fetching actual data
-        client = get_pooled_client()
-        
-        # Create a task for the database check with a shorter timeout
-        # Use a simple query that doesn't require context manager
-        def check_db():
+        # Skip database check entirely if client initialization would hang
+        # Just try to get the client without actually using it
+        try:
+            client = get_pooled_client()
+            db_status = "initialized"
+            
+            # Try to get pool stats without making a query
             try:
-                with client.pool.get_connection() as conn:
-                    return conn.table("properties").select("id", count="exact", head=True).limit(1).execute()
+                pool_stats = client.get_pool_stats()
+                pool_info = {
+                    "active_connections": pool_stats.get("active", 0),
+                    "idle_connections": pool_stats.get("idle", 0),
+                    "total_requests": pool_stats.get("total_requests", 0)
+                }
+                db_status = "pool_ready"
             except:
-                # Fallback to direct client if pool fails
-                return client.get_properties(limit=1)
-        
-        db_check_task = asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    check_db
-                ),
-                timeout=3.0  # Reduced timeout for faster response
-            )
-        )
-        
-        # Run the database check
-        try:
-            result = await db_check_task
-            db_status = "connected"
-            status = "healthy"
-        except asyncio.TimeoutError:
-            db_status = "degraded"  # Not fully timeout, just slow
-            status = "healthy"  # API is still healthy even if DB is slow
-            error_detail = "Database response slow"
-        
-        # Get pool statistics (this is synchronous and fast)
-        try:
-            pool_stats = client.get_pool_stats()
-            pool_info = {
-                "active_connections": pool_stats.get("active", 0),
-                "idle_connections": pool_stats.get("idle", 0),
-                "total_requests": pool_stats.get("total_requests", 0)
-            }
-        except:
-            pool_info = {"status": "unavailable"}
-    except asyncio.TimeoutError:
-        db_status = "timeout"
-        status = "degraded"  # API works but DB is down
-        error_detail = "Database connection timeout"
+                pool_info = {"status": "pool_unavailable"}
+                db_status = "pool_error"
+                
+        except Exception as init_error:
+            db_status = "init_failed"
+            error_detail = f"Client initialization failed: {str(init_error)[:100]}"
+            status = "degraded"
+            
     except Exception as e:
         db_status = "error"
-        status = "degraded"  # API works but DB has issues
-        error_detail = str(e)[:200]  # Limit error message length
+        status = "degraded"
+        error_detail = str(e)[:200]
     
     # Check cache status (Redis disabled)
     cache_status = "disabled"
@@ -1120,6 +1100,22 @@ async def get_metrics():
     if not ENABLE_METRICS:
         raise HTTPException(status_code=404, detail="Metrics not enabled")
     return Response(content=generate_latest(), media_type="text/plain")
+
+@app.get("/debug/env", tags=["System"])
+async def debug_env():
+    """Debug endpoint to check environment configuration (non-sensitive info only)"""
+    return {
+        "has_supabase_url": bool(os.getenv("SUPABASE_URL")),
+        "has_supabase_key": bool(os.getenv("SUPABASE_KEY")),
+        "warm_db_on_startup": WARM_DB_ON_STARTUP,
+        "enable_cache": ENABLE_CACHE,
+        "enable_metrics": ENABLE_METRICS,
+        "enable_rate_limit": ENABLE_RATE_LIMIT,
+        "max_batch_size": MAX_BATCH_SIZE,
+        "concurrent_extractions": CONCURRENT_EXTRACTIONS,
+        "api_version": API_VERSION,
+        "uptime_seconds": time.time() - APP_START_TIME
+    }
 
 @app.get("/api/v1/properties", tags=["Properties"])
 @rate_limit("100/minute")
