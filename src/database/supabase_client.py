@@ -132,6 +132,39 @@ class SupabasePropertyTaxClient:
         response = self.client.table("jurisdictions").update({"extraction_config": config}).eq("jurisdiction_name", jurisdiction_name).execute()
         return response.data[0] if response.data else None
     
+    def get_pool_stats(self) -> Dict[str, Any]:
+        """Get connection pool statistics (stub for compatibility)."""
+        # Regular client doesn't use pooling, return dummy stats
+        return {
+            "active": 0,
+            "idle": 1,
+            "total_requests": 0,
+            "created": 1,
+            "failed": 0,
+            "avg_wait_time_ms": 0,
+            "peak_connections": 1,
+            "pool_size": 1,
+            "overflow_count": 0,
+            "uptime_seconds": 0
+        }
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics (stub for compatibility)."""
+        return {
+            "hits": 0,
+            "misses": 0,
+            "hit_rate": 0.0,
+            "size": 0
+        }
+    
+    def clear_cache(self):
+        """Clear cache (stub for compatibility)."""
+        pass
+    
+    def close(self):
+        """Close client (stub for compatibility)."""
+        pass
+    
     # Bulk Operations
     def bulk_import_properties_from_csv(self, csv_path: str) -> Dict[str, Any]:
         """Import properties from CSV file."""

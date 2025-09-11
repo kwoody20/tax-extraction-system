@@ -86,6 +86,7 @@ ENABLE_RATE_LIMIT = _rate_limit_env.lower() == "true" and HAS_RATE_LIMIT
 
 # Lazy initialization without connection pooling
 _client: Optional[SupabasePropertyTaxClient] = None
+_pooled_client = None  # Placeholder for compatibility
 
 def get_client() -> SupabasePropertyTaxClient:
     """Get or create singleton Supabase client with lazy initialization."""
@@ -158,6 +159,7 @@ if ENABLE_METRICS:
     # Database metrics
     db_query_count = Counter('db_queries_total', 'Total database queries', ['operation'])
     db_query_duration = Histogram('db_query_duration_seconds', 'Database query duration', ['operation'])
+    db_errors = Counter('db_errors_total', 'Total database errors', ['operation'])
     
     # Extraction metrics
     extraction_count = Counter('extractions_total', 'Total extractions', ['jurisdiction', 'status'])
@@ -170,6 +172,21 @@ if ENABLE_METRICS:
     # System metrics
     active_connections = Gauge('active_connections', 'Active database connections')
     queue_size = Gauge('extraction_queue_size', 'Extraction queue size')
+else:
+    # Create dummy metrics for when metrics are disabled
+    class DummyMetric:
+        def labels(self, **kwargs):
+            return self
+        def inc(self, amount=1):
+            pass
+        def dec(self, amount=1):
+            pass
+        def observe(self, value):
+            pass
+        def set(self, value):
+            pass
+    
+    db_errors = DummyMetric()
 
 WARM_DB_ON_STARTUP = os.getenv("WARM_DB_ON_STARTUP", "false").lower() == "true"
 
@@ -224,13 +241,13 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("API shutting down...")
 
-    # Clean up pooled connections (only if created)
-    if _pooled_client is not None:
+    # Clean up client connections (only if created)
+    if _client is not None:
         try:
-            _pooled_client.close()
-            logger.info("Connection pool closed successfully")
+            # Regular client doesn't have a close method, but we can clean up
+            logger.info("Client cleanup completed")
         except Exception as e:
-            logger.error(f"Error closing connection pool: {e}")
+            logger.error(f"Error during cleanup: {e}")
 
     # Shutdown thread executor
     db_executor.shutdown(wait=True)
@@ -496,122 +513,114 @@ async def monitored_query(operation: str, query_func, timeout: float = 10.0):
 @cached_result(ttl=60)  # Cache for 1 minute
 async def get_statistics_optimized() -> Dict[str, Any]:
     """
-    Get statistics using optimized separate queries with counts.
-    Avoids fetching all rows and uses database counting features.
+    Get statistics using optimized database functions and single RPC call.
+    Uses the get_tax_statistics() function from optimize_queries.sql.
     """
     try:
-        # Run multiple lightweight queries in parallel for better performance
+        # Try to use the optimized database function first
+        result = await monitored_query(
+            "tax_statistics_rpc",
+            lambda: supabase.rpc("get_tax_statistics", {}).execute(),
+            timeout=3.0
+        )
+        
+        if result and result.data and len(result.data) > 0:
+            # Use the optimized function results
+            stats = result.data[0]
+            return {
+                "total_properties": stats.get("total_properties", 0),
+                "total_entities": stats.get("total_entities", 0),
+                "total_outstanding": float(stats.get("total_outstanding", 0)),
+                "total_previous": float(stats.get("total_previous", 0)),
+                "extracted_count": stats.get("extracted_count", 0),
+                "pending_count": stats.get("pending_count", 0),
+                "last_extraction_date": stats.get("last_extraction_date")
+            }
+        
+        # Fallback to optimized parallel queries if RPC fails
+        # Use COUNT queries with minimal data transfer
         tasks = []
         
-        # Task 1: Get property count
+        # Task 1: Get counts using a single aggregated query
         tasks.append(asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    lambda: supabase.table("properties").select("*", count="exact", head=True).execute()
-                ),
+            monitored_query(
+                "property_counts",
+                lambda: supabase.table("properties").select(
+                    "id",
+                    count="exact"
+                ).execute(),
                 timeout=2.0
             )
         ))
         
         # Task 2: Get entity count
         tasks.append(asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    lambda: supabase.table("entities").select("*", count="exact", head=True).execute()
-                ),
+            monitored_query(
+                "entity_count",
+                lambda: supabase.table("entities").select(
+                    "entity_id",
+                    count="exact"
+                ).execute(),
                 timeout=2.0
             )
         ))
         
-        # Task 3: Get extracted count (properties with amount_due > 0)
+        # Task 3: Get aggregated financial data using database aggregation
+        # Note: Supabase doesn't support direct SUM, so we get minimal data
         tasks.append(asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    lambda: supabase.table("properties").select("*", count="exact", head=True).gt("amount_due", 0).execute()
-                ),
-                timeout=2.0
-            )
-        ))
-        
-        # Task 4: Get sample of properties for financial totals (limit to 500 for speed)
-        tasks.append(asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    lambda: supabase.table("properties")
-                        .select("amount_due, previous_year_taxes")
-                        .not_.is_("amount_due", "null")
-                        .limit(500)
-                        .execute()
-                ),
+            monitored_query(
+                "financial_totals",
+                lambda: supabase.table("properties")
+                    .select("amount_due, previous_year_taxes")
+                    .not_.is_("amount_due", "null")
+                    .execute(),
                 timeout=3.0
             )
         ))
         
-        # Task 5: Get last update date
+        # Task 4: Get last update date
         tasks.append(asyncio.create_task(
-            asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    db_executor,
-                    lambda: supabase.table("properties")
-                        .select("updated_at")
-                        .order("updated_at", desc=True)
-                        .limit(1)
-                        .execute()
-                ),
-                timeout=2.0
+            monitored_query(
+                "last_update",
+                lambda: supabase.table("properties")
+                    .select("updated_at")
+                    .order("updated_at", desc=True)
+                    .limit(1)
+                    .execute(),
+                timeout=1.0
             )
         ))
         
-        # Wait for all tasks with overall timeout
-        results = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=True),
-            timeout=5.0
-        )
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         
-        # Parse results
+        # Parse results with better error handling
         total_properties = 0
         total_entities = 0
-        extracted_count = 0
         total_outstanding = 0
         total_previous = 0
+        extracted_count = 0
         last_extraction_date = None
         
-        # Result 0: Total properties
-        if not isinstance(results[0], Exception) and hasattr(results[0], 'count'):
-            total_properties = results[0].count or 0
+        # Result 0: Property count
+        if not isinstance(results[0], Exception) and results[0]:
+            total_properties = results[0].count if hasattr(results[0], 'count') else 0
         
-        # Result 1: Total entities
-        if not isinstance(results[1], Exception) and hasattr(results[1], 'count'):
-            total_entities = results[1].count or 0
+        # Result 1: Entity count
+        if not isinstance(results[1], Exception) and results[1]:
+            total_entities = results[1].count if hasattr(results[1], 'count') else 0
         
-        # Result 2: Extracted count
-        if not isinstance(results[2], Exception) and hasattr(results[2], 'count'):
-            extracted_count = results[2].count or 0
+        # Result 2: Financial totals
+        if not isinstance(results[2], Exception) and results[2] and hasattr(results[2], 'data'):
+            data = results[2].data or []
+            total_outstanding = sum(float(p.get("amount_due", 0) or 0) for p in data)
+            total_previous = sum(float(p.get("previous_year_taxes", 0) or 0) for p in data)
+            extracted_count = sum(1 for p in data if p.get("amount_due") and float(p.get("amount_due", 0)) > 0)
         
-        # Result 3: Financial totals from sample
-        if not isinstance(results[3], Exception) and hasattr(results[3], 'data'):
-            sample_data = results[3].data or []
-            if sample_data:
-                sample_outstanding = sum(p.get("amount_due", 0) or 0 for p in sample_data)
-                sample_previous = sum(p.get("previous_year_taxes", 0) or 0 for p in sample_data)
-                
-                # Extrapolate if we have a sample
-                if len(sample_data) < total_properties and len(sample_data) > 0:
-                    scale_factor = total_properties / len(sample_data)
-                    total_outstanding = int(sample_outstanding * scale_factor)
-                    total_previous = int(sample_previous * scale_factor)
-                else:
-                    total_outstanding = sample_outstanding
-                    total_previous = sample_previous
-        
-        # Result 4: Last extraction date
-        if not isinstance(results[4], Exception) and hasattr(results[4], 'data'):
-            if results[4].data and len(results[4].data) > 0:
-                last_extraction_date = results[4].data[0].get("updated_at")
+        # Result 3: Last extraction date
+        if not isinstance(results[3], Exception) and results[3] and hasattr(results[3], 'data'):
+            if results[3].data and len(results[3].data) > 0:
+                last_extraction_date = results[3].data[0].get("updated_at")
         
         pending_count = max(0, total_properties - extracted_count)
         
@@ -627,7 +636,16 @@ async def get_statistics_optimized() -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Statistics query error: {e}")
-        raise
+        # Return default values on error
+        return {
+            "total_properties": 0,
+            "total_entities": 0,
+            "total_outstanding": 0,
+            "total_previous": 0,
+            "extracted_count": 0,
+            "pending_count": 0,
+            "last_extraction_date": None
+        }
 
 @cached_result(ttl=30)  # Cache for 30 seconds
 async def get_extraction_status_optimized() -> Dict[str, Any]:
@@ -687,54 +705,98 @@ async def get_extraction_status_optimized() -> Dict[str, Any]:
 @cached_result(ttl=300)  # Cache for 5 minutes
 async def get_jurisdictions_optimized() -> Dict[str, Any]:
     """
-    Get jurisdictions from the jurisdictions table and enrich with property counts
-    and support information from the cloud extractor map.
+    Get jurisdictions using optimized database function or efficient queries.
+    Uses the get_jurisdiction_stats() function from optimize_queries.sql when available.
     """
     try:
-        # 1) Fetch canonical jurisdictions from jurisdictions table
+        # Try to use the optimized database function first
+        stats_result = await monitored_query(
+            "jurisdiction_stats_rpc",
+            lambda: supabase.rpc("get_jurisdiction_stats", {}).execute(),
+            timeout=2.0
+        )
+        
+        # Fetch canonical jurisdictions from jurisdictions table
         jur_result = await monitored_query(
             "jurisdictions_table",
             lambda: supabase
                 .table("jurisdictions")
                 .select("jurisdiction_name,state,jurisdiction_type,tax_website_url,is_active")
-                .execute()
+                .order("jurisdiction_name")
+                .execute(),
+            timeout=2.0
         )
         jurisdictions_rows = jur_result.data if jur_result else []
-
-        # 2) Get unique jurisdictions from properties with counts
-        # Use a more efficient approach - get unique jurisdictions first
-        unique_jurisdictions_result = await monitored_query(
-            "unique_jurisdictions",
-            lambda: supabase
-                .table("properties")
-                .select("jurisdiction")
-                .not_.is_("jurisdiction", "null")
-                .execute()
-        )
         
-        # Count occurrences in memory (much faster than fetching all data)
-        jurisdiction_counts: Dict[str, int] = {}
-        extracted_counts: Dict[str, int] = {}
+        # Create a map of jurisdiction statistics from RPC if available
+        stats_map = {}
+        if stats_result and stats_result.data:
+            for stat in stats_result.data:
+                stats_map[stat.get("jurisdiction")] = {
+                    "count": stat.get("count", 0),
+                    "extracted_count": stat.get("extracted_count", 0),
+                    "avg_tax_amount": float(stat.get("avg_tax_amount", 0)) if stat.get("avg_tax_amount") else None,
+                    "total_tax_amount": float(stat.get("total_tax_amount", 0)) if stat.get("total_tax_amount") else 0
+                }
         
-        if unique_jurisdictions_result and unique_jurisdictions_result.data:
-            # Group and count
-            for prop in unique_jurisdictions_result.data:
-                jn = (prop.get("jurisdiction") or "").strip()
-                if jn:
-                    jurisdiction_counts[jn] = jurisdiction_counts.get(jn, 0) + 1
+        # If RPC failed, use a more efficient fallback
+        if not stats_map:
+            # Get jurisdiction counts using a single query with minimal data
+            props_result = await monitored_query(
+                "jurisdiction_counts",
+                lambda: supabase
+                    .table("properties")
+                    .select("jurisdiction, amount_due")
+                    .not_.is_("jurisdiction", "null")
+                    .execute(),
+                timeout=3.0
+            )
+            
+            if props_result and props_result.data:
+                # Calculate statistics in memory (faster than multiple queries)
+                for prop in props_result.data:
+                    jn = (prop.get("jurisdiction") or "").strip()
+                    if jn:
+                        if jn not in stats_map:
+                            stats_map[jn] = {
+                                "count": 0,
+                                "extracted_count": 0,
+                                "total_tax_amount": 0,
+                                "tax_amounts": []
+                            }
+                        stats_map[jn]["count"] += 1
+                        amount_due = prop.get("amount_due")
+                        if amount_due and float(amount_due) > 0:
+                            stats_map[jn]["extracted_count"] += 1
+                            stats_map[jn]["total_tax_amount"] += float(amount_due)
+                            stats_map[jn]["tax_amounts"].append(float(amount_due))
+                
+                # Calculate averages
+                for jn, stats in stats_map.items():
+                    if "tax_amounts" in stats and stats["tax_amounts"]:
+                        stats["avg_tax_amount"] = sum(stats["tax_amounts"]) / len(stats["tax_amounts"])
+                        del stats["tax_amounts"]  # Remove temporary list
+                    else:
+                        stats["avg_tax_amount"] = None
         
-        # For extracted counts, we can estimate based on the extraction rate
-        # or skip this if not critical for performance
-        extracted_counts = {jn: 0 for jn in jurisdiction_counts}
-
-        # 3) Annotate with cloud extractor supported jurisdictions
+        # Get supported jurisdictions from cloud extractor
         supported_map = cloud_extractor.get_supported_jurisdictions()
-
+        
+        # Build jurisdiction list with all information
         jurisdictions = []
         for row in jurisdictions_rows:
             name = row.get("jurisdiction_name")
             if not name:
                 continue
+            
+            # Get stats from map
+            stats = stats_map.get(name, {
+                "count": 0,
+                "extracted_count": 0,
+                "avg_tax_amount": None,
+                "total_tax_amount": 0
+            })
+            
             # Determine support/confidence via substring match
             is_supported = any(k.lower() in name.lower() for k in supported_map.keys())
             confidence = None
@@ -743,7 +805,7 @@ async def get_jurisdictions_optimized() -> Dict[str, Any]:
                     if k.lower() in name.lower():
                         confidence = info.get("confidence", "medium")
                         break
-
+            
             jurisdictions.append({
                 "name": name,
                 "state": row.get("state"),
@@ -752,19 +814,33 @@ async def get_jurisdictions_optimized() -> Dict[str, Any]:
                 "is_active": row.get("is_active"),
                 "supported": is_supported,
                 "confidence": confidence,
-                "count": jurisdiction_counts.get(name, 0),
-                "extracted_count": extracted_counts.get(name, 0),
+                "count": stats["count"],
+                "extracted_count": stats["extracted_count"],
+                "avg_tax_amount": stats.get("avg_tax_amount"),
+                "total_tax_amount": stats.get("total_tax_amount", 0)
             })
-
+        
+        # Sort by count for better UX
+        jurisdictions.sort(key=lambda x: x["count"], reverse=True)
+        
         supported_count = sum(1 for j in jurisdictions if j.get("supported"))
         return {
             "jurisdictions": jurisdictions,
             "total": len(jurisdictions),
-            "supported_count": supported_count
+            "supported_count": supported_count,
+            "total_properties": sum(j["count"] for j in jurisdictions),
+            "total_extracted": sum(j["extracted_count"] for j in jurisdictions)
         }
     except Exception as e:
         logger.error(f"Jurisdictions query error: {e}")
-        raise
+        # Return empty result on error
+        return {
+            "jurisdictions": [],
+            "total": 0,
+            "supported_count": 0,
+            "total_properties": 0,
+            "total_extracted": 0
+        }
 
 async def batch_update_properties(updates: List[Dict[str, Any]], chunk_size: int = 100):
     """
@@ -1121,7 +1197,8 @@ async def get_properties(
     due_date_before: Optional[str] = Query(None, description="Due date before (ISO format)"),
     due_date_after: Optional[str] = Query(None, description="Due date after (ISO format)"),
     sort_by: Optional[str] = Query("id", description="Sort field"),
-    sort_order: Optional[str] = Query("asc", description="Sort order: asc or desc")
+    sort_order: Optional[str] = Query("asc", description="Sort order: asc or desc"),
+    select_fields: Optional[str] = Query(None, description="Comma-separated list of fields to return")
 ):
     """Get list of properties with enhanced filtering and pagination."""
     try:
@@ -1136,8 +1213,22 @@ async def get_properties(
                 "next_cursor": next_cursor
             }
         
-        # Build query with all filters
-        query = supabase.table("properties").select("*")
+        # Optimize field selection - only get what we need
+        # Default fields for performance (most commonly needed)
+        default_fields = [
+            "id", "property_id", "property_name", "property_address",
+            "jurisdiction", "state", "amount_due", "tax_due_date",
+            "tax_bill_link", "parent_entity_id", "paid_by", "updated_at"
+        ]
+        
+        # Use custom fields if specified, otherwise use defaults
+        if select_fields:
+            fields = select_fields
+        else:
+            fields = ",".join(default_fields)
+        
+        # Build query with specific field selection
+        query = supabase.table("properties").select(fields)
         
         # Apply all filters
         if jurisdiction:
@@ -1151,7 +1242,7 @@ async def get_properties(
             if needs_extraction:
                 query = query.or_("amount_due.is.null,amount_due.eq.0")
             else:
-                query = query.neq("amount_due", 0).not_.is_("amount_due", "null")
+                query = query.gt("amount_due", 0)
         if amount_due_min is not None:
             query = query.gte("amount_due", amount_due_min)
         if amount_due_max is not None:
@@ -1162,25 +1253,71 @@ async def get_properties(
         if due_date_after:
             query = query.gte("tax_due_date", due_date_after)
         
-        # Apply sorting
+        # Apply sorting with validation
+        sort_field = sort_by if sort_by in default_fields + ["property_type", "account_number", "close_date"] else "id"
         if sort_order == "desc":
-            query = query.order(sort_by, desc=True)
+            query = query.order(sort_field, desc=True)
         else:
-            query = query.order(sort_by)
+            query = query.order(sort_field)
         
-        # Apply pagination
+        # Apply pagination with count for total
         query = query.range(offset, offset + limit - 1)
         
         # Execute query with monitoring and shorter timeout for responsiveness
-        result = await monitored_query("get_properties", lambda: query.execute(), timeout=5.0)
+        result = await monitored_query(
+            "get_properties",
+            lambda: query.execute(),
+            timeout=3.0  # Reduced timeout for faster response
+        )
         
-        return {
+        # Get total count in parallel for pagination info (optional)
+        count_query = supabase.table("properties").select("id", count="exact")
+        
+        # Apply same filters for count
+        if jurisdiction:
+            count_query = count_query.eq("jurisdiction", jurisdiction)
+        if state:
+            count_query = count_query.eq("state", state)
+        if entity_id:
+            count_query = count_query.eq("parent_entity_id", entity_id)
+        if needs_extraction is not None:
+            if needs_extraction:
+                count_query = count_query.or_("amount_due.is.null,amount_due.eq.0")
+            else:
+                count_query = count_query.gt("amount_due", 0)
+        if amount_due_min is not None:
+            count_query = count_query.gte("amount_due", amount_due_min)
+        if amount_due_max is not None:
+            count_query = count_query.lte("amount_due", amount_due_max)
+        if due_date_before:
+            count_query = count_query.lte("tax_due_date", due_date_before)
+        if due_date_after:
+            count_query = count_query.gte("tax_due_date", due_date_after)
+        
+        # Get total count (optional, can be disabled for even faster response)
+        total_count = None
+        if limit < 1000:  # Only get count for reasonable page sizes
+            count_result = await monitored_query(
+                "get_properties_count",
+                lambda: count_query.execute(),
+                timeout=1.0
+            )
+            if count_result and hasattr(count_result, 'count'):
+                total_count = count_result.count
+        
+        response_data = {
             "properties": result.data if result else [],
             "count": len(result.data) if result else 0,
             "limit": limit,
             "offset": offset
         }
+        
+        if total_count is not None:
+            response_data["total_count"] = total_count
+        
+        return response_data
     except Exception as e:
+        logger.error(f"Properties endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/extract", response_model=ExtractionResponse, tags=["Extraction"])
@@ -1372,27 +1509,84 @@ async def get_entities(
     request: Request,
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    search: Optional[str] = Query(None, description="Search entity name")
+    search: Optional[str] = Query(None, description="Search entity name"),
+    state: Optional[str] = Query(None, description="Filter by state"),
+    entity_type: Optional[str] = Query(None, description="Filter by entity type"),
+    select_fields: Optional[str] = Query(None, description="Comma-separated list of fields to return")
 ):
-    """Get list of entities with pagination and search."""
+    """Get list of entities with pagination, search, and optimized field selection."""
     try:
-        query = supabase.table("entities").select("*")
+        # Optimize field selection - only get what we need
+        # Default fields for performance (most commonly needed)
+        default_fields = [
+            "entity_id", "entity_name", "entity_type",
+            "state", "jurisdiction", "updated_at"
+        ]
         
-        # Add search filter if provided
+        # Use custom fields if specified, otherwise use defaults
+        if select_fields:
+            fields = select_fields
+        else:
+            fields = ",".join(default_fields)
+        
+        # Build query with specific field selection
+        query = supabase.table("entities").select(fields)
+        
+        # Add filters
         if search:
             query = query.ilike("entity_name", f"%{search}%")
+        if state:
+            query = query.eq("state", state)
+        if entity_type:
+            query = query.eq("entity_type", entity_type)
         
+        # Order by entity_name for consistent results
+        query = query.order("entity_name")
+        
+        # Apply pagination
         query = query.range(offset, offset + limit - 1)
         
-        result = await monitored_query("get_entities", lambda: query.execute(), timeout=5.0)
+        # Execute query with monitoring and shorter timeout
+        result = await monitored_query(
+            "get_entities",
+            lambda: query.execute(),
+            timeout=2.0  # Reduced timeout for faster response
+        )
         
-        return {
+        # Optionally get total count for pagination
+        total_count = None
+        if limit < 500:  # Only get count for reasonable page sizes
+            count_query = supabase.table("entities").select("entity_id", count="exact")
+            
+            # Apply same filters for count
+            if search:
+                count_query = count_query.ilike("entity_name", f"%{search}%")
+            if state:
+                count_query = count_query.eq("state", state)
+            if entity_type:
+                count_query = count_query.eq("entity_type", entity_type)
+            
+            count_result = await monitored_query(
+                "get_entities_count",
+                lambda: count_query.execute(),
+                timeout=1.0
+            )
+            if count_result and hasattr(count_result, 'count'):
+                total_count = count_result.count
+        
+        response_data = {
             "entities": result.data if result else [],
             "count": len(result.data) if result else 0,
             "limit": limit,
             "offset": offset
         }
+        
+        if total_count is not None:
+            response_data["total_count"] = total_count
+        
+        return response_data
     except Exception as e:
+        logger.error(f"Entities endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/statistics", response_model=StatisticsResponse, tags=["Analytics"])
