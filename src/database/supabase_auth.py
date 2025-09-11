@@ -1,6 +1,7 @@
 """
 Supabase Authentication Module for Tax Extraction System.
 Handles user registration, login, and token management.
+Designed to avoid module-level client initialization for safe deployments.
 """
 
 import os
@@ -17,14 +18,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 load_dotenv()
 
-# ========================= Configuration =========================
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
-
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    raise ValueError("Please set SUPABASE_URL and SUPABASE_KEY environment variables")
+# Note: Read environment lazily to avoid import-time failures
+def _get_supabase_env() -> Tuple[str, str, str]:
+    url = os.getenv("SUPABASE_URL")
+    anon = os.getenv("SUPABASE_KEY")
+    service = os.getenv("SUPABASE_SERVICE_KEY", "")
+    if not url or not anon:
+        raise ValueError("Please set SUPABASE_URL and SUPABASE_KEY environment variables")
+    return url, anon, service
 
 # ========================= Auth Manager =========================
 
@@ -33,10 +34,11 @@ class SupabaseAuthManager:
     
     def __init__(self):
         """Initialize Supabase client for auth operations."""
-        self.client: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        url, anon, service = _get_supabase_env()
+        self.client: Client = create_client(url, anon)
         self.service_client: Optional[Client] = None
-        if SUPABASE_SERVICE_KEY:
-            self.service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        if service:
+            self.service_client = create_client(url, service)
     
     # =================== User Registration ===================
     
@@ -359,7 +361,14 @@ class SupabaseAuthManager:
 # ========================= FastAPI Dependencies =========================
 
 security = HTTPBearer()
-auth_manager = SupabaseAuthManager()
+
+_auth_manager: Optional[SupabaseAuthManager] = None
+
+def get_auth_manager() -> SupabaseAuthManager:
+    global _auth_manager
+    if _auth_manager is None:
+        _auth_manager = SupabaseAuthManager()
+    return _auth_manager
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict:
     """
@@ -377,7 +386,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     token = credentials.credentials
     
     # Verify the token
-    is_valid, user_info = auth_manager.verify_token(token)
+    is_valid, user_info = get_auth_manager().verify_token(token)
     
     if not is_valid:
         raise HTTPException(
@@ -405,7 +414,7 @@ async def get_optional_user(request: Request) -> Optional[Dict]:
         return None
     
     token = auth_header.replace("Bearer ", "")
-    is_valid, user_info = auth_manager.verify_token(token)
+    is_valid, user_info = get_auth_manager().verify_token(token)
     
     return user_info if is_valid else None
 
