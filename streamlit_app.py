@@ -20,5 +20,8 @@ if ROOT_DIR not in sys.path:
 
 # Import the actual dashboard module and reload it to ensure
 # its top-level Streamlit code runs on every rerun.
-import src.dashboard.streamlit_app as _dashboard_app
-importlib.reload(_dashboard_app)
+_mod_name = "src.dashboard.streamlit_app"
+if _mod_name in sys.modules:
+    importlib.reload(sys.modules[_mod_name])
+else:
+    importlib.import_module(_mod_name)
