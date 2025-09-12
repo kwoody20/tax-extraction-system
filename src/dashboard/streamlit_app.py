@@ -16,7 +16,7 @@ import json
 from io import BytesIO
 import time
 import asyncio
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -189,12 +189,22 @@ if 'notifications' not in st.session_state:
 
 # Enhanced cache data fetching functions with advanced filtering
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_properties(filters: Optional[Dict[str, Any]] = None, cursor: Optional[str] = None, limit: int = 100):
-    """Fetch properties data from API with advanced filtering and pagination."""
+def fetch_properties(
+    filters: Optional[Dict[str, Any]] = None,
+    cursor: Optional[str] = None,
+    limit: int = 100,
+    offset: Optional[int] = None,
+) -> Tuple[List[Dict[str, Any]], Optional[str], Dict[str, Any]]:
+    """Fetch a single page of properties with optional filters and cursor.
+
+    Returns (properties, next_cursor, meta) where meta may include count/limit/total_count.
+    """
     try:
         params = {"limit": limit}
         if cursor:
             params["cursor"] = cursor
+        if offset is not None:
+            params["offset"] = offset
         if filters:
             # Add advanced filters
             if filters.get('jurisdiction'):
@@ -227,10 +237,36 @@ def fetch_properties(filters: Optional[Dict[str, Any]] = None, cursor: Optional[
         )
         if response.status_code == 200:
             data = response.json()
-            return data.get("properties", []), data.get("next_cursor")
+            meta = {k: data.get(k) for k in ("count", "limit", "total_count", "offset", "cursor") if k in data}
+            return data.get("properties", []), data.get("next_cursor"), meta
     except Exception as e:
         st.error(f"Error fetching properties: {e}")
-    return [], None
+    return [], None, {}
+
+@st.cache_data(ttl=300)
+def fetch_all_properties(
+    filters: Optional[Dict[str, Any]] = None,
+    page_limit: int = 500,
+    max_pages: int = 50
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Fetch all properties by following cursor pagination.
+
+    Returns (all_properties, meta) where meta includes pages and last_cursor.
+    """
+    all_props: List[Dict[str, Any]] = []
+    pages = 0
+    offset = 0
+    last_meta: Dict[str, Any] = {}
+    while pages < max_pages:
+        props, _, meta = fetch_properties(filters=filters, limit=page_limit, offset=offset)
+        all_props.extend(props)
+        last_meta = meta or {}
+        pages += 1
+        if not props or len(props) < page_limit:
+            break
+        offset += page_limit
+    last_meta.update({"pages": pages, "last_offset": offset})
+    return all_props, last_meta
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_statistics():
@@ -417,39 +453,57 @@ def create_loading_skeleton(rows: int = 5, cols: int = 5):
     )
     return skeleton_data
 
-def format_paid_by(value):
-    """Format paid_by field with color coding."""
+def format_paid_by(value: Any) -> str:
+    """HTML version for paid_by badges (for card-style views)."""
     if pd.isna(value) or value == "":
         return "-"
-    
-    value_lower = str(value).lower()
-    if "landlord" in value_lower:
-        return f'<span class="paid-by-landlord">{value}</span>'
-    elif "reimburse" in value_lower:
-        return f'<span class="paid-by-reimburse">{value}</span>'
-    elif "tenant" in value_lower:
-        return f'<span class="paid-by-tenant">{value}</span>'
-    else:
-        return value
+    value_str = str(value)
+    lower = value_str.lower()
+    if "landlord" in lower:
+        return f'<span class="paid-by-landlord">{value_str}</span>'
+    if "reimburse" in lower:
+        return f'<span class="paid-by-reimburse">{value_str}</span>'
+    if "tenant" in lower:
+        return f'<span class="paid-by-tenant">{value_str}</span>'
+    return value_str
 
-def format_due_date(date_str):
-    """Format due date with color coding based on urgency."""
-    if pd.isna(date_str) or date_str == "":
+def format_paid_by_plain(value: Any) -> str:
+    """Plain-text version for table cells (no HTML)."""
+    if pd.isna(value) or value == "":
         return "-"
-    
+    return str(value)
+
+def format_due_date_html(date_val: Any) -> str:
+    """HTML version of due date with urgency coloring (for card-style views)."""
+    if pd.isna(date_val) or date_val == "":
+        return "-"
     try:
-        due_date = pd.to_datetime(date_str)
-        formatted_date = due_date.strftime('%m/%d/%Y')
+        due_date = pd.to_datetime(date_val)
+        formatted = due_date.strftime('%m/%d/%Y')
         days_until = (due_date - datetime.now()).days
-        
         if days_until < 0:
-            return f'<span class="due-soon">⚠️ {formatted_date} (OVERDUE)</span>'
-        elif days_until <= 30:
-            return f'<span class="due-soon">⏰ {formatted_date} ({days_until}d)</span>'
-        else:
-            return f'<span class="due-later">✓ {formatted_date}</span>'
-    except:
-        return date_str
+            return f'<span class="due-soon">⚠️ {formatted} (OVERDUE)</span>'
+        if days_until <= 30:
+            return f'<span class="due-soon">⏰ {formatted} ({days_until}d)</span>'
+        return f'<span class="due-later">✓ {formatted}</span>'
+    except Exception:
+        return str(date_val)
+
+def format_due_date_plain(date_val: Any) -> str:
+    """Plain-text version for table cells (no HTML)."""
+    if pd.isna(date_val) or date_val == "":
+        return "-"
+    try:
+        due_date = pd.to_datetime(date_val)
+        formatted = due_date.strftime('%m/%d/%Y')
+        days_until = (due_date - datetime.now()).days
+        if days_until < 0:
+            return f"⚠️ {formatted} (OVERDUE)"
+        if days_until <= 30:
+            return f"⏰ {formatted} ({days_until}d)"
+        return f"✓ {formatted}"
+    except Exception:
+        return str(date_val)
 
 # Apply dark mode if enabled
 if hasattr(st.session_state, 'dark_mode') and st.session_state.dark_mode:
@@ -543,9 +597,9 @@ with st.sidebar:
     # Enhanced Filters Section
     st.header("🔍 Advanced Filters")
     
-    # Load initial data for filter options (reduced prefetch; only ~110 total)
+    # Load initial data for filter options (limited prefetch)
     with st.spinner("Loading filter options..."):
-        properties, _ = fetch_properties(limit=150)
+        properties, _, _ = fetch_properties(limit=150)
     # Defer entity list loading to avoid extra blocking request on startup
     entities = []
     
@@ -578,6 +632,19 @@ with st.sidebar:
                     st.success(f"Saved preset: {preset_name}")
                     add_activity_log(f"Saved filter preset: {preset_name}", "success")
     
+    # General controls
+    st.subheader("⚙️ Data Loading")
+    st.checkbox("Load all results (paginate)", value=False, key="load_all_results",
+                help="Fetch all pages from the API. Can be slower.")
+    st.number_input("Page size", min_value=50, max_value=1000, value=200, step=50, key="page_size",
+                    help="Number of items to fetch per page when not loading all.")
+    if st.button("Reset filters"):
+        keys_to_clear = [k for k in st.session_state.keys() if k.startswith("filter_")]
+        for k in keys_to_clear:
+            del st.session_state[k]
+        st.success("Filters reset. Reloading...")
+        st.rerun()
+
     if properties:
         df_props = pd.DataFrame(properties)
         
@@ -613,6 +680,7 @@ with st.sidebar:
                     format="$%.2f",
                     key="filter_amount_range"
                 )
+                st.checkbox("Apply amount filter", value=False, key="filter_amount_enabled", help="When enabled, restrict results to the selected amount range")
             else:
                 amount_range = (0.0, 50000.0)
         else:
@@ -666,6 +734,7 @@ with st.sidebar:
                     format="MM/DD/YYYY",
                     key="filter_date_range"
                 )
+                st.checkbox("Apply date filter", value=False, key="filter_date_enabled", help="When enabled, restrict results to the selected date range")
             else:
                 date_range = None
         else:
@@ -722,17 +791,17 @@ if 'filter_jurisdictions' in st.session_state and st.session_state.filter_jurisd
 if 'filter_state' in st.session_state and st.session_state.filter_state != "All":
     filter_params['state'] = st.session_state.filter_state
 
-if 'filter_amount_range' in st.session_state:
+if 'filter_amount_range' in st.session_state and st.session_state.get('filter_amount_enabled'):
     filter_params['amount_due_min'] = st.session_state.filter_amount_range[0]
     filter_params['amount_due_max'] = st.session_state.filter_amount_range[1]
 
-if 'filter_date_range' in st.session_state and st.session_state.filter_date_range:
+if 'filter_date_range' in st.session_state and st.session_state.filter_date_range and st.session_state.get('filter_date_enabled'):
     if len(st.session_state.filter_date_range) == 2:
         filter_params['due_date_after'] = st.session_state.filter_date_range[0].isoformat()
         filter_params['due_date_before'] = st.session_state.filter_date_range[1].isoformat()
 
-if 'filter_needs_extraction' in st.session_state:
-    filter_params['needs_extraction'] = st.session_state.filter_needs_extraction
+if st.session_state.get('filter_needs_extraction'):
+    filter_params['needs_extraction'] = True
 
 if 'filter_sort_by' in st.session_state:
     filter_params['sort_by'] = st.session_state.filter_sort_by
@@ -742,7 +811,13 @@ if 'filter_sort_order' in st.session_state:
 
 # Load data with filters
 with st.spinner("Loading data..."):
-    properties, next_cursor = fetch_properties(filters=filter_params, limit=200)
+    if st.session_state.get("load_all_results"):
+        properties, meta = fetch_all_properties(filters=filter_params, page_limit=st.session_state.get("page_size", 200))
+        next_cursor = None
+        load_info = f"Loaded all results in {meta.get('pages', 1)} page(s)"
+    else:
+        properties, next_cursor, meta = fetch_properties(filters=filter_params, limit=st.session_state.get("page_size", 200))
+        load_info = f"Loaded {len(properties)} item(s), next page: {'yes' if next_cursor else 'no'}"
     stats = fetch_statistics()
     entities = fetch_entities()
 
@@ -971,7 +1046,7 @@ with tab2:
                         st.warning("Please select 10 or fewer properties for batch extraction")
         
         # Display summary
-        st.info(f"Showing {len(df)} properties based on current filters | Next cursor: {'Available' if next_cursor else 'End of results'}")
+        st.info(f"Showing {len(df)} properties | {load_info}")
         
         # Prepare display dataframe
         display_df = df.copy()
@@ -979,11 +1054,11 @@ with tab2:
         # Format columns for display
         if 'tax_due_date' in display_df.columns:
             display_df['tax_due_date_formatted'] = display_df['tax_due_date_dt'].apply(
-                lambda x: format_due_date(x) if pd.notna(x) else "-"
+                lambda x: format_due_date_plain(x) if pd.notna(x) else "-"
             )
         
         if 'paid_by' in display_df.columns:
-            display_df['paid_by_formatted'] = display_df['paid_by'].apply(format_paid_by)
+            display_df['paid_by_formatted'] = display_df['paid_by'].apply(format_paid_by_plain)
         
         # Enhanced property display with bulk selection
         if st.session_state.bulk_edit_mode:
@@ -1013,8 +1088,8 @@ with tab2:
                             📍 {row.get('property_address', 'N/A')}<br>
                             🏛️ {row.get('jurisdiction', 'N/A')} | 📍 {row.get('state', 'N/A')}<br>
                             💰 Amount: {format_amount_with_color(row.get('amount_due', 0))}<br>
-                            📅 Due: {row.get('tax_due_date_formatted', 'N/A')}<br>
-                            💳 Paid By: {row.get('paid_by_formatted', 'N/A')}
+                            📅 Due: {format_due_date_html(row.get('tax_due_date'))}<br>
+                            💳 Paid By: {format_paid_by(row.get('paid_by'))}
                         </div>
                         """
                         st.markdown(property_html, unsafe_allow_html=True)
@@ -2186,3 +2261,11 @@ with footer_col2:
 
 with footer_col3:
     st.caption(f"🌐 API: {API_URL}")
+
+# Signal to the entrypoint that the dashboard rendered successfully
+try:
+    import os as _os
+    _os.environ["DASHBOARD_RENDERED"] = "1"
+except Exception:
+    # Environment may be restricted; safe to ignore as this only affects fallback UI
+    pass
