@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import requests
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
 from io import BytesIO
 import time
@@ -396,6 +396,34 @@ def bulk_update_properties(updates: List[Dict[str, Any]]):
             return {"success": False, "message": f"API returned {response.status_code}"}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+def create_entity_api(entity: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a new entity via API."""
+    try:
+        response = requests.post(
+            f"{API_URL}/api/v1/entities",
+            json=entity,
+            timeout=20
+        )
+        if response.status_code in (200, 201):
+            return response.json()
+        return {"error": f"API returned {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
+
+def create_property_api(prop: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a new property via API."""
+    try:
+        response = requests.post(
+            f"{API_URL}/api/v1/properties",
+            json=prop,
+            timeout=20
+        )
+        if response.status_code in (200, 201):
+            return response.json()
+        return {"error": f"API returned {response.status_code}", "details": response.text}
+    except Exception as e:
+        return {"error": str(e)}
 
 def clear_api_cache(pattern: Optional[str] = None):
     """Clear API cache."""
@@ -985,6 +1013,178 @@ with tab1:
 
 with tab2:
     st.header("🏢 Properties Detail")
+
+    # Add Property UI (compact, single clickable row)
+    with st.expander("➕ Add Property", expanded=False):
+        # Local styles for clear visual separation
+        st.markdown(
+            """
+            <style>
+              .add-property-card {
+                border: 1px solid rgba(0,0,0,0.1);
+                border-radius: 10px;
+                padding: 16px 16px 6px 16px;
+                background: #fbfbfb;
+                margin-top: 8px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+              }
+              .add-property-card .section-title {
+                font-weight: 600;
+                margin: 6px 0 8px 0;
+              }
+              .add-property-card .fine-print {
+                color: #666; font-size: 12px; margin-top: -2px; margin-bottom: 8px;
+              }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown('<div class="add-property-card">', unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>Property Details</div>", unsafe_allow_html=True)
+        with st.form("add_property_form", clear_on_submit=True):
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                new_property_id = st.text_input("Property ID", placeholder="e.g., PROP_12345")
+                new_property_name = st.text_input("Property Name")
+                new_property_address = st.text_input("Property Address")
+                new_state = st.text_input("State", placeholder="e.g., TX")
+                new_jurisdiction = st.text_input("Jurisdiction", placeholder="e.g., Harris County")
+                new_account_number = st.text_input("Account Number", placeholder="Optional")
+                new_tax_bill_link = st.text_input("Tax Bill Link", placeholder="https://...")
+            with pc2:
+                st.markdown("<div class='section-title'>Financials</div>", unsafe_allow_html=True)
+                new_amount_due = st.number_input("Amount Due", min_value=0.0, step=100.0, format="%0.2f")
+                new_prev_year = st.number_input("Previous Year Taxes", min_value=0.0, step=100.0, format="%0.2f")
+                new_paid_by = st.selectbox("Paid By", options=["", "Landlord", "Tenant", "Tenant to Reimburse"], index=0)
+                new_due_date = st.date_input("Tax Due Date", value=None, format="MM/DD/YYYY")
+                new_close_date = st.date_input("Close Date", value=None, format="MM/DD/YYYY")
+                new_property_type = st.text_input("Property Type", value="property")
+
+            new_extraction_steps = st.text_area("Extraction Steps (notes)", height=80)
+
+            st.divider()
+            st.markdown("<div class='section-title'>Entity Assignment</div>", unsafe_allow_html=True)
+            entity_mode = st.radio(
+                "Entity Assignment",
+                options=["Assign to Existing Entity", "Create New Entity"],
+                horizontal=True,
+                key="add_prop_entity_mode"
+            )
+
+            selected_parent_entity_id = None
+            if entity_mode == "Assign to Existing Entity":
+                # Build list of existing entities
+                entity_names = [e.get("entity_name", "Unnamed") for e in (entities or [])]
+                selected_entity_name = st.selectbox("Select Entity", options=entity_names or ["No entities available"]) if entities else st.selectbox("Select Entity", options=["No entities available"]) 
+                if entities and selected_entity_name:
+                    for e in entities:
+                        if e.get("entity_name") == selected_entity_name:
+                            selected_parent_entity_id = e.get("entity_id")
+                            break
+                new_entity_payload = None
+            else:
+                # Create new entity fields
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    ent_name = st.text_input("New Entity Name")
+                    ent_type = st.selectbox(
+                        "New Entity Type",
+                        options=["Parent Entity", "Sub-Entity", "Single-Property Entity"],
+                        index=0
+                    )
+                with ec2:
+                    ent_state = st.text_input("Entity State", placeholder="e.g., TX")
+                    ent_juris = st.text_input("Entity Jurisdiction", placeholder="Optional")
+
+                ent_parent_id = None
+                if ent_type == "Sub-Entity":
+                    parent_options = [e.get("entity_name", "Unnamed") for e in (entities or [])]
+                    ent_parent_name = st.selectbox("Parent Entity", options=parent_options or ["No parent entities"])
+                    if entities and ent_parent_name:
+                        for e in entities:
+                            if e.get("entity_name") == ent_parent_name:
+                                ent_parent_id = e.get("entity_id")
+                                break
+
+                # For single-property entity we may capture some property-like fields
+                include_prop_details = (ent_type == "Single-Property Entity")
+                if include_prop_details:
+                    st.caption("This entity will store property-like details as well.")
+
+                new_entity_payload = {
+                    "entity_name": ent_name,
+                    "entity_type": ent_type.lower(),
+                    "state": ent_state or None,
+                    "jurisdiction": ent_juris or None,
+                    "parent_entity_id": ent_parent_id or None,
+                }
+                if include_prop_details:
+                    new_entity_payload.update({
+                        "account_number": new_account_number or None,
+                        "property_address": new_property_address or None,
+                        "tax_bill_link": new_tax_bill_link or None,
+                        "amount_due": float(new_amount_due or 0) if new_amount_due is not None else None,
+                        "previous_year_taxes": float(new_prev_year or 0) if new_prev_year is not None else None,
+                        "close_date": new_close_date.isoformat() if isinstance(new_close_date, (datetime, date)) else None,
+                    })
+
+            submitted = st.form_submit_button("Create Property", type="primary")
+
+            if submitted:
+                # Validate required
+                if not new_property_id or not new_property_name:
+                    st.error("Property ID and Property Name are required")
+                elif entity_mode == "Assign to Existing Entity" and not selected_parent_entity_id:
+                    st.error("Please select an entity to assign the property to")
+                elif entity_mode == "Create New Entity" and (not new_entity_payload or not new_entity_payload.get("entity_name")):
+                    st.error("Please provide a name for the new entity")
+                else:
+                    # Create entity first if requested
+                    created_entity_id = selected_parent_entity_id
+                    if entity_mode == "Create New Entity":
+                        ent_result = create_entity_api(new_entity_payload)
+                        if ent_result.get("entity"):
+                            created_entity_id = ent_result["entity"].get("entity_id") or ent_result["entity"].get("id")
+                        else:
+                            st.error(f"Failed to create entity: {ent_result.get('error') or ent_result.get('details') or 'Unknown error'}")
+                            st.stop()
+
+                    # Build property payload
+                    prop_payload: Dict[str, Any] = {
+                        "property_id": new_property_id,
+                        "property_name": new_property_name,
+                        "property_address": new_property_address or None,
+                        "jurisdiction": new_jurisdiction or None,
+                        "state": new_state or None,
+                        "property_type": new_property_type or None,
+                        "account_number": new_account_number or None,
+                        "tax_bill_link": new_tax_bill_link or None,
+                        "amount_due": float(new_amount_due or 0) if new_amount_due is not None else None,
+                        "previous_year_taxes": float(new_prev_year or 0) if new_prev_year is not None else None,
+                        "paid_by": new_paid_by or None,
+                        "extraction_steps": new_extraction_steps or None,
+                        "parent_entity_id": created_entity_id or None,
+                    }
+                    if isinstance(new_due_date, (datetime, date)):
+                        try:
+                            prop_payload["tax_due_date"] = new_due_date.isoformat()
+                        except Exception:
+                            pass
+                    if isinstance(new_close_date, (datetime, date)):
+                        try:
+                            prop_payload["close_date"] = new_close_date.isoformat()
+                        except Exception:
+                            pass
+
+                    result = create_property_api(prop_payload)
+                    if result.get("property"):
+                        st.success("Property created successfully")
+                        add_activity_log(f"Created property {new_property_name} ({new_property_id})", "success")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to create property: {result.get('error') or result.get('details') or 'Unknown error'}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
     if not df.empty:
         # Bulk operations toolbar
@@ -1075,7 +1275,7 @@ with tab2:
                         prop_id = df.iloc[idx]['property_id']
                         is_selected = prop_id in st.session_state.selected_properties
                         
-                        if st.checkbox("", value=is_selected, key=f"select_{prop_id}"):
+                        if st.checkbox("Select", value=is_selected, key=f"select_{prop_id}", label_visibility="collapsed"):
                             st.session_state.selected_properties.add(prop_id)
                         else:
                             st.session_state.selected_properties.discard(prop_id)
