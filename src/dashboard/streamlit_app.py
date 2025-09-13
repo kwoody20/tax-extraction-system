@@ -1219,7 +1219,7 @@ with tab2:
                 
                 if new_paid_by != "No Change" and st.button("Apply Update", key="apply_bulk_update"):
                     updates = [
-                        {"id": prop_id, "paid_by": new_paid_by}
+                        {"property_id": prop_id, "paid_by": new_paid_by}
                         for prop_id in st.session_state.selected_properties
                     ]
                     result = bulk_update_properties(updates)
@@ -1359,7 +1359,8 @@ with tab2:
                     for idx, row in edited_df.iterrows():
                         original_row = display_df_renamed.iloc[idx]
                         if not row.equals(original_row):
-                            update = {"id": df.iloc[idx]['property_id']}
+                            # Use logical property_id for updates, not internal id
+                            update = {"property_id": df.iloc[idx]['property_id']}
                             if row.get('Paid By') != original_row.get('Paid By'):
                                 update['paid_by'] = row['Paid By']
                             updates.append(update)

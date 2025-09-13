@@ -855,8 +855,12 @@ async def batch_update_properties(updates: List[Dict[str, Any]], chunk_size: int
         return
 
     def _update_row(row: Dict[str, Any]):
-        # Prepare update fields without identifiers
-        data = {k: v for k, v in row.items() if k not in ("id",)}
+        # Prepare update fields without identifiers or immutable columns
+        # Never modify identifiers or timestamps through this pathway
+        data = {
+            k: v for k, v in row.items()
+            if k not in ("id", "property_id", "created_at", "updated_at")
+        }
         if not data:
             return None
         if row.get("id"):
