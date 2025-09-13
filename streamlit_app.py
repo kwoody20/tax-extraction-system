@@ -47,8 +47,28 @@ def fetch_jurisdictions():
         pass
     return []
 
-st.title("🏢 Property Tax Dashboard — Overview")
-st.caption(f"Updated {datetime.now().strftime('%H:%M:%S')} · API: {API_URL}")
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+hdr1, hdr2 = st.columns([6, 1])
+with hdr1:
+    st.title("🏢 Property Tax Dashboard — Overview")
+    st.caption(f"Updated {datetime.now().strftime('%H:%M:%S')} · API: {API_URL}")
+with hdr2:
+    dm = st.toggle("Dark Mode", value=st.session_state.dark_mode, key="overview_dark_mode")
+    if dm != st.session_state.dark_mode:
+        st.session_state.dark_mode = dm
+        st.rerun()
+
+if st.session_state.dark_mode:
+    st.markdown(
+        """
+        <style>
+          .stApp { background: #111827; color: #e5e7eb; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 stats = fetch_statistics() or {}
 

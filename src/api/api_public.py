@@ -94,7 +94,8 @@ def get_client() -> SupabasePropertyTaxClient:
     if _client is None:
         # Read required DB envs lazily to comply with deployment rules
         supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")
+        # Prefer service role key for server-side API to bypass RLS safely
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
         if not supabase_url or not supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         # Create regular client without pooling
@@ -102,7 +103,10 @@ def get_client() -> SupabasePropertyTaxClient:
             url=supabase_url,
             key=supabase_key
         )
-        logger.info("Initialized Supabase client (pooling disabled)")
+        logger.info(
+            "Initialized Supabase client (pooling disabled, key=%s)",
+            "service" if os.getenv("SUPABASE_SERVICE_ROLE_KEY") else "standard"
+        )
     return _client
 
 # Create a proxy that will use lazy initialization
@@ -845,18 +849,32 @@ async def get_jurisdictions_optimized() -> Dict[str, Any]:
 async def batch_update_properties(updates: List[Dict[str, Any]], chunk_size: int = 100):
     """
     Efficiently update multiple properties with chunking for large batches.
+    Uses UPDATE by id/property_id (avoids INSERT paths that can trigger RLS violations).
     """
     if not updates:
         return
-    
+
+    def _update_row(row: Dict[str, Any]):
+        # Prepare update fields without identifiers
+        data = {k: v for k, v in row.items() if k not in ("id",)}
+        if not data:
+            return None
+        if row.get("id"):
+            return supabase.table("properties").update(data).eq("id", row["id"]).execute()
+        if row.get("property_id"):
+            return supabase.table("properties").update(data).eq("property_id", row["property_id"]).execute()
+        raise ValueError("Each update must include 'id' or 'property_id'")
+
     try:
         # Process in chunks to avoid overwhelming the database
         for i in range(0, len(updates), chunk_size):
             chunk = updates[i:i + chunk_size]
-            await monitored_query(
-                "batch_update",
-                lambda c=chunk: supabase.table("properties").upsert(c).execute()
-            )
+            # Execute updates sequentially per chunk (DB handles parallelism)
+            for row in chunk:
+                await monitored_query(
+                    "update_property_row",
+                    lambda r=row: _update_row(r)
+                )
     except Exception as e:
         logger.error(f"Batch update error: {e}")
         raise
@@ -1218,8 +1236,9 @@ async def get_properties(
         default_fields = [
             "id", "property_id", "property_name", "property_address",
             "jurisdiction", "state", "amount_due", "tax_due_date",
-            "tax_bill_link", "parent_entity_id", "paid_by", "updated_at",
-            "account_number", "appraised_value"
+            "tax_bill_link", "parent_entity_id", "parent_entity_name",
+            "sub_entity", "paid_by", "updated_at", "account_number",
+            "appraised_value"
         ]
         
         # Use custom fields if specified, otherwise use defaults
@@ -1275,22 +1294,49 @@ async def get_properties(
         enriched_properties = []
         if result and getattr(result, 'data', None):
             props = result.data
-            # Only attempt enrichment if parent_entity_id is present in the selection
-            if props and 'parent_entity_id' in props[0]:
-                entity_ids = sorted({p.get('parent_entity_id') for p in props if p.get('parent_entity_id')})
-                entity_map = {}
-                if entity_ids:
-                    ent_result = await monitored_query(
-                        "get_entities_for_properties",
-                        lambda: supabase.table("entities").select("entity_id,entity_name").in_("entity_id", entity_ids).execute(),
-                        timeout=2.0
-                    )
-                    if ent_result and getattr(ent_result, 'data', None):
-                        entity_map = {e.get('entity_id'): e.get('entity_name') for e in ent_result.data}
+            # Try multiple enrichment strategies
+            entity_map = {}
+            if props:
+                # 1) Map by parent_entity_id if present
+                if 'parent_entity_id' in props[0]:
+                    entity_ids = sorted({p.get('parent_entity_id') for p in props if p.get('parent_entity_id')})
+                    if entity_ids:
+                        ent_result = await monitored_query(
+                            "get_entities_for_properties",
+                            lambda: supabase.table("entities").select("entity_id,entity_name").in_("entity_id", entity_ids).execute(),
+                            timeout=2.0
+                        )
+                        if ent_result and getattr(ent_result, 'data', None):
+                            entity_map.update({e.get('entity_id'): e.get('entity_name') for e in ent_result.data})
+
+                # 2) Map by entity_id if properties carry it (fallback)
+                if 'entity_id' in props[0]:
+                    other_ids = sorted({p.get('entity_id') for p in props if p.get('entity_id')})
+                    missing_ids = [x for x in other_ids if x and x not in entity_map]
+                    if missing_ids:
+                        ent_result2 = await monitored_query(
+                            "get_entities_by_entity_id_fallback",
+                            lambda: supabase.table("entities").select("entity_id,entity_name").in_("entity_id", missing_ids).execute(),
+                            timeout=2.0
+                        )
+                        if ent_result2 and getattr(ent_result2, 'data', None):
+                            entity_map.update({e.get('entity_id'): e.get('entity_name') for e in ent_result2.data})
+
+                # Attach name or use provided name fields
                 for p in props:
-                    if p.get('parent_entity_id') in entity_map:
-                        # attach entity_name directly on the property payload
-                        p = {**p, 'entity_name': entity_map.get(p.get('parent_entity_id'))}
+                    if not p.get('entity_name'):
+                        name = None
+                        peid = p.get('parent_entity_id')
+                        if peid and peid in entity_map:
+                            name = entity_map.get(peid)
+                        elif p.get('entity_id') and p.get('entity_id') in entity_map:
+                            name = entity_map.get(p.get('entity_id'))
+                        elif p.get('parent_entity_name'):
+                            name = p.get('parent_entity_name')
+                        elif p.get('sub_entity'):
+                            name = p.get('sub_entity')
+                        if name:
+                            p = {**p, 'entity_name': name}
                     enriched_properties.append(p)
             else:
                 enriched_properties = props

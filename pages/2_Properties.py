@@ -75,17 +75,6 @@ def create_property_api(prop: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"error": str(e)}
 
-@st.cache_data(ttl=120)
-def fetch_documents_for_property(property_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-    try:
-        payload = {"property_id": property_id, "limit": limit}
-        r = requests.post(f"{DOC_API_URL}/api/documents/search", json=payload, timeout=15)
-        if r.status_code == 200:
-            return r.json().get("documents", [])
-    except Exception:
-        pass
-    return []
-
 def update_property_fields(updates: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Bulk update properties (used for single-record edit)."""
     try:
@@ -98,30 +87,59 @@ def update_property_fields(updates: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {"error": str(e)}
 
 # --------------- Styles ---------------
+# Dark mode state
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+# Header + dark mode toggle
+hdr1, hdr2 = st.columns([6, 1])
+with hdr1:
+    st.title("🏠 Properties")
+    st.caption(f"API: {API_URL}")
+with hdr2:
+    dm = st.toggle("Dark Mode", value=st.session_state.dark_mode, key="props_dark_mode")
+    if dm != st.session_state.dark_mode:
+        st.session_state.dark_mode = dm
+        st.rerun()
+
 st.markdown(
     """
     <style>
       .filter-card, .card {
-        border: 1px solid #dcdcdc;
+        border: 1px solid #d1d5db;
         border-radius: 12px;
         background: #fbfbfb;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         padding: 16px;
         margin-bottom: 12px;
       }
-      .card { border-left: 4px solid #4f46e5; }
-      .card:hover { border-color: #bbbbbb; }
+      .card:hover { border-color: #9ca3af; }
       .card h4 { margin: 0 0 8px 0; }
       .pill { display:inline-block; padding:2px 8px; border-radius: 999px; background:#eef2ff; margin-left:6px; font-size:12px; }
       .kv { color:#555; }
       .kv b { color:#222; }
+      .btn-link { display:inline-block; padding:6px 10px; background:#1f77b4; color:#fff !important; text-decoration:none; border-radius:6px; font-size:13px; }
+      .btn-link:hover { background:#155a8a; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-st.title("🏠 Properties")
-st.caption(f"API: {API_URL}")
+if st.session_state.dark_mode:
+    st.markdown(
+        """
+        <style>
+          .stApp { background: #111827; color: #e5e7eb; }
+          .filter-card, .card { background: #1f2937; border: 1px solid #374151; box-shadow: none; }
+          .kv { color: #e5e7eb; }
+          .kv b { color: #f3f4f6; }
+          .pill { background:#374151; color:#e5e7eb; }
+          .btn-link { background:#2563eb; }
+          .btn-link:hover { background:#1d4ed8; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --------------- Filters ---------------
 entities = fetch_entities()
@@ -326,7 +344,14 @@ else:
         with c1:
             st.markdown(f"<div class='kv'>📍 <b>Address:</b> {p.get('property_address') or '—'}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='kv'>🏛️ <b>Jurisdiction:</b> {p.get('jurisdiction') or '—'} · <b>State:</b> {p.get('state') or '—'}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kv'>🧾 <b>Tax Bill:</b> {p.get('tax_bill_link') or '—'}</div>", unsafe_allow_html=True)
+            tax_url = p.get('tax_bill_link')
+            if tax_url:
+                if hasattr(st, "link_button"):
+                    st.link_button("🧾 Open Tax Bill", tax_url)
+                else:
+                    st.markdown(f"<a class='btn-link' href='{tax_url}' target='_blank' rel='noopener'>🧾 Open Tax Bill</a>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='kv'>🧾 <b>Tax Bill:</b> —</div>", unsafe_allow_html=True)
         with c2:
             st.markdown(f"<div class='kv'>💰 <b>Amount Due:</b> {amt_str}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='kv'>📅 <b>Due Date:</b> {due or '—'}</div>", unsafe_allow_html=True)
@@ -338,36 +363,10 @@ else:
                 av_str = "—"
             st.markdown(f"<div class='kv'>🏷️ <b>Appraised Value:</b> {av_str}</div>", unsafe_allow_html=True)
         with c3:
-            st.markdown(f"<div class='kv'>🏢 <b>Entity:</b> {p.get('entity_name') or '—'}</div>", unsafe_allow_html=True)
+            en = p.get('entity_name') or p.get('parent_entity_name') or p.get('sub_entity')
+            st.markdown(f"<div class='kv'>🏢 <b>Entity:</b> {en or '—'}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='kv'>#️⃣ <b>Account #:</b> {p.get('account_number') or '—'}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='kv'>🔄 <b>Updated:</b> {p.get('updated_at') or '—'}</div>", unsafe_allow_html=True)
-
-        with st.expander("📎 View Documents"):
-            pid = p.get("property_id") or p.get("id")
-            if not pid:
-                st.info("No property identifier available.")
-            else:
-                docs = fetch_documents_for_property(pid)
-                if not docs:
-                    st.info("No documents found for this property yet.")
-                else:
-                    for d in docs:
-                        name = d.get("document_name") or d.get("document_type") or "Document"
-                        url = d.get("public_url") or d.get("download_url")
-                        meta_line = " · ".join(
-                            [
-                                f"Type: {d.get('document_type') or 'n/a'}",
-                                f"Year: {d.get('tax_year') or 'n/a'}",
-                                f"Due: {d.get('due_date') or 'n/a'}",
-                                f"Paid: {d.get('paid_date') or 'n/a'}",
-                            ]
-                        )
-                        if url:
-                            st.markdown(f"- [{name}]({url})  ")
-                        else:
-                            st.markdown(f"- {name}")
-                        st.caption(meta_line)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Inline edit form (account number and appraised value)
