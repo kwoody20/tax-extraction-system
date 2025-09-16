@@ -74,6 +74,31 @@ if st.session_state.dark_mode:
         unsafe_allow_html=True
     )
 
+banner_gradient = "linear-gradient(90deg, #1f2937 0%, #3b82f6 100%)"
+if st.session_state.dark_mode:
+    banner_gradient = "linear-gradient(90deg, #2563eb 0%, #7c3aed 100%)"
+
+st.markdown(
+    f"""
+    <style>
+      .coming-soon-banner {{
+        margin-top: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 1.25rem 1.5rem;
+        border-radius: 16px;
+        color: #f9fafb;
+        font-size: 1.4rem;
+        font-weight: 700;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(31, 41, 55, 0.25);
+        letter-spacing: 0.04em;
+      }}
+    </style>
+    <div class="coming-soon-banner" style="background: {banner_gradient};">Coming soon: document storage and user comments</div>
+    """,
+    unsafe_allow_html=True,
+)
+
 stats = fetch_statistics() or {}
 
 col1, col2, col3, col4 = st.columns(4)
