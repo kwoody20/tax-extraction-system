@@ -123,18 +123,6 @@ if st.session_state.dark_mode:
 # --------------- Filters ---------------
 entities = fetch_entities()
 
-PAYMENT_STATUS_OPTIONS = {
-    "All": None,
-    "Paid": "paid",
-    "Pending": "pending",
-    "Partial": "partial",
-    "Overdue": "overdue",
-    "Due Soon": "due_soon",
-    "Upcoming": "upcoming",
-}
-
-status_value: Optional[str] = None
-
 with st.container():
     st.markdown('<div class="filter-card">', unsafe_allow_html=True)
     fc1, fc2, fc3 = st.columns([2, 2, 2])
@@ -146,11 +134,6 @@ with st.container():
         sel_state = st.text_input("State", placeholder="e.g., TX")
     with fc2:
         sel_juris = st.text_input("Jurisdiction", placeholder="e.g., Harris County")
-        sel_payment_status = st.selectbox(
-            "Payment Status",
-            options=list(PAYMENT_STATUS_OPTIONS.keys()),
-            index=0,
-        )
     with fc3:
         dd1, dd2 = st.columns(2)
         with dd1:
@@ -172,10 +155,6 @@ with st.container():
         filter_params["due_date_after"] = due_from.isoformat()
     if isinstance(due_to, (datetime, date)):
         filter_params["due_date_before"] = due_to.isoformat()
-    status_value = PAYMENT_STATUS_OPTIONS.get(sel_payment_status or "All")
-    if status_value:
-        filter_params["payment_status"] = status_value
-
     refresh = st.button("Apply Filters", type="primary")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -185,11 +164,6 @@ if refresh:
 
 with st.spinner("Loading properties..."):
     properties, meta = fetch_properties(filters=filter_params, limit=200)
-    if status_value:
-        status_key = status_value.lower()
-        properties = [
-            p for p in properties if str(p.get("payment_status") or "").lower() == status_key
-        ]
 
 if not properties:
     st.info("No properties found for current filters.")
