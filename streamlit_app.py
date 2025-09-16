@@ -11,12 +11,16 @@ from datetime import datetime
 import streamlit as st
 import plotly.express as px
 
+from src.dashboard.tracking import inject_google_analytics
+
 st.set_page_config(
     page_title="Tax Dashboard",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+inject_google_analytics(default="G-YTNYDRKJEF")
 
 # Resolve API URLs
 def _get_api_url() -> str:

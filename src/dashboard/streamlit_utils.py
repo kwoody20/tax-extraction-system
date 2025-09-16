@@ -44,6 +44,19 @@ def format_percentage(value: float, decimals: int = 1) -> str:
         return "0.0%"
     return f"{value:.{decimals}f}%"
 
+def format_timestamp(value: Optional[str], fmt: str = "%b %d, %Y %H:%M") -> str:
+    """Return a human-friendly timestamp or fallback to the original text."""
+    if not value:
+        return "—"
+    try:
+        cleaned = value
+        if value.endswith("Z"):
+            cleaned = value[:-1] + "+00:00"
+        dt = datetime.fromisoformat(cleaned)
+        return dt.strftime(fmt)
+    except Exception:
+        return value
+
 @st.cache_data
 def calculate_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     """Calculate comprehensive metrics from dataframe."""

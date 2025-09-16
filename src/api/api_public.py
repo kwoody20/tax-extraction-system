@@ -1213,6 +1213,7 @@ async def get_properties(
     jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
     state: Optional[str] = Query(None, description="Filter by state"),
     needs_extraction: Optional[bool] = Query(None, description="Filter by extraction status"),
+    payment_status: Optional[str] = Query(None, description="Filter by payment status"),
     entity_id: Optional[str] = Query(None, description="Filter by entity ID (entities.entity_id)"),
     amount_due_min: Optional[float] = Query(None, description="Minimum amount due"),
     amount_due_max: Optional[float] = Query(None, description="Maximum amount due"),
@@ -1242,7 +1243,7 @@ async def get_properties(
             "jurisdiction", "state", "amount_due", "tax_due_date",
             "tax_bill_link", "parent_entity_id", "parent_entity_name",
             "sub_entity", "paid_by", "updated_at", "account_number",
-            "appraised_value"
+            "appraised_value", "payment_status"
         ]
         
         # Use custom fields if specified, otherwise use defaults
@@ -1267,6 +1268,8 @@ async def get_properties(
                 query = query.or_("amount_due.is.null,amount_due.eq.0")
             else:
                 query = query.gt("amount_due", 0)
+        if payment_status:
+            query = query.eq("payment_status", payment_status)
         if amount_due_min is not None:
             query = query.gte("amount_due", amount_due_min)
         if amount_due_max is not None:
@@ -1360,6 +1363,8 @@ async def get_properties(
                 count_query = count_query.or_("amount_due.is.null,amount_due.eq.0")
             else:
                 count_query = count_query.gt("amount_due", 0)
+        if payment_status:
+            count_query = count_query.eq("payment_status", payment_status)
         if amount_due_min is not None:
             count_query = count_query.gte("amount_due", amount_due_min)
         if amount_due_max is not None:

@@ -6,7 +6,11 @@ from typing import Any, Dict, Optional, List
 import requests
 import streamlit as st
 
+from src.dashboard.tracking import inject_google_analytics
+
 st.set_page_config(page_title="Add Entity", page_icon="🏢", layout="wide")
+
+inject_google_analytics(default="G-YTNYDRKJEF")
 
 # --------------- Config & Helpers ---------------
 def _get_api_url() -> str:

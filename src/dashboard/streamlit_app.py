@@ -22,6 +22,9 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import numpy as np
 
+from .tracking import inject_google_analytics
+from .streamlit_utils import format_timestamp
+
 st.set_page_config(
     page_title="Tax Dashboard Pro",
     page_icon="🏢",
@@ -33,6 +36,8 @@ st.set_page_config(
         'About': 'Enhanced Property Tax Dashboard v2.0 - Powered by Advanced Analytics'
     }
 )
+
+inject_google_analytics(default="G-YTNYDRKJEF")
 
 # Enhanced Custom CSS for better styling with dark mode support
 st.markdown("""
@@ -1886,7 +1891,7 @@ with tab5:
                             current_tax = property_data.get('amount_due', 0)
                             if current_tax and current_tax > 0:
                                 st.write(f"• Tax Amount: ${current_tax:,.2f}")
-                                st.write(f"• Last Updated: {property_data.get('updated_at', 'N/A')}")
+                                st.write(f"• Last Updated: {format_timestamp(property_data.get('updated_at'))}")
                             else:
                                 st.write("• No tax data available")
                                 st.write("• Needs extraction")

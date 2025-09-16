@@ -14,6 +14,8 @@ from typing import Optional, List, Dict, Any
 import os
 from supabase import create_client, Client
 
+from .tracking import inject_google_analytics
+
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://klscgjbachumeojhxyno.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
@@ -24,6 +26,7 @@ DOC_API_URL = os.getenv("DOC_API_URL", "http://localhost:8002")
 
 def document_management_tab():
     """Main document management tab for Streamlit"""
+    inject_google_analytics(default="G-YTNYDRKJEF")
     st.header("📄 Document Management")
     
     # Create sub-tabs
